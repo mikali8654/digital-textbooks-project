@@ -23,6 +23,7 @@ npm run dev
 | `npm run test` | 單元測試 |
 | `npm run tokens` | 從 `design/tokens.raw.txt` 重新產生設計 token |
 | `npm run icons` | 從 `design/icons/` 重新產生圖示模組 |
+| `npm run inspect` | 把真的教材內容餵進排版引擎，把算出來的頁印出來 |
 
 ## 專案結構
 

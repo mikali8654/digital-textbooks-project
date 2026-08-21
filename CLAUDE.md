@@ -70,6 +70,7 @@ design/icons/*.svg  →  npm run icons  →  src/assets/icons.generated.ts
 | `npm run icons` | 從 design/icons 重新產生圖示模組 |
 | `npm run typecheck` | TypeScript 檢查 |
 | `npm run test` | 單元測試（排版引擎的正確性靠這個把關） |
+| `npm run inspect` | 引擎檢視器。餵真教材進去，把算出來的頁印成文字，不必讀測試也能看見行為 |
 
 ## 目前進度
 
