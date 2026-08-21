@@ -1,37 +1,63 @@
 import { isSplittable } from './registry';
 import { gapBefore } from './spacing';
-import type { Block, Row, TextBlock } from './types';
+import type { Block, DocSettings, Row, TextBlock } from './types';
 
 /**
  * 把內容流切成頁。
  *
  * 這是整個系統的核心：頁不儲存在資料裡，是這個函式算出來的。
- * 量測交給外部注入，所以引擎本身沒有 DOM 相依，可以直接測。
+ *
+ * 尺寸一律用「邏輯軸」而不是寬高，因為直排的內容是由右往左流的——
+ * 一頁填滿與否，直排量的是寬度，橫排量的是高度。用寬高命名會把
+ * 「橫排」的假設寫進引擎裡。
+ *
+ *   inline：文字行進的方向（橫排＝寬，直排＝高）
+ *   block ：內容堆疊、分頁消耗的方向（橫排＝高，直排＝寬）
+ *
+ * 演算法對兩種書寫方向完全相同，差別只在 pageOptionsFor() 的映射。
  */
 
 export type Measurer = {
   /**
-   * 區塊在給定寬度下的高度。maxHeight 是一整頁的可用高度——
-   * 圖片類比一頁還高時，實作要等比縮到放得進去。
+   * 區塊在給定 inline 尺寸下佔的 block 尺寸。
+   * maxBlockSize 是一整頁的可用量——盒狀模組比一頁還大時，
+   * 實作要等比縮到放得進去。
    */
-  blockHeight(block: Block, widthPx: number, maxHeightPx: number): number;
-  /** 可切開的文字：每一行的高度。引擎只在行邊界切開，不會切到半行。 */
-  textLines(block: TextBlock, widthPx: number): number[];
+  blockSize(block: Block, inlineSize: number, maxBlockSize: number): number;
+  /** 可切開的文字：每一行佔的 block 尺寸。引擎只在行邊界切開。 */
+  textLineSizes(block: TextBlock, inlineSize: number): number[];
 };
 
 export type PageOptions = {
-  /** 頁面內容區的寬高（已扣掉頁面留白）。 */
-  contentWidth: number;
-  contentHeight: number;
-  /** 欄與欄之間的溝寬。 */
+  /** 頁面內容區的尺寸（已扣掉頁面留白）。 */
+  contentInlineSize: number;
+  contentBlockSize: number;
+  /** 欄與欄之間的溝寬，量在 inline 軸上。 */
   columnGap: number;
 };
 
+/**
+ * 把實體的頁面尺寸依書寫方向映射成邏輯軸。
+ * 整個引擎對 writingMode 的相依只有這一個函式，其餘都不知道有直排這回事。
+ */
+export function pageOptionsFor(
+  settings: Pick<DocSettings, 'writingMode'>,
+  page: { width: number; height: number },
+  columnGap: number
+): PageOptions {
+  const vertical = settings.writingMode === 'vertical';
+  return {
+    contentInlineSize: vertical ? page.height : page.width,
+    contentBlockSize: vertical ? page.width : page.height,
+    columnGap,
+  };
+}
+
 export type PageItem = {
   row: Row;
-  /** 這一列上緣要留的間距。每頁第一列一律為 0。 */
+  /** 這一列前緣要留的間距。每頁第一列一律為 0。 */
   gapBefore: number;
-  height: number;
+  blockSize: number;
   /** 這一列是從上一頁接續下來的。 */
   continuedFromPrev: boolean;
   /** 這一列還沒結束，下一頁繼續——畫面要顯示接續記號。 */
@@ -43,24 +69,24 @@ export type Page = {
   items: PageItem[];
   /** 這一頁是怎麼開始的。manual 的換頁線不隨內容移動，auto 的會。 */
   startedBy: 'first' | 'manual' | 'auto';
-  /** 已用高度。剩下的就是留白——那是使用者選擇的結果，不是錯誤。 */
-  usedHeight: number;
+  /** 已用的 block 尺寸。剩下的就是留白——那是使用者選擇的結果，不是錯誤。 */
+  usedBlockSize: number;
 };
 
-const columnWidths = (row: Row, o: PageOptions): number[] => {
+const columnInlineSizes = (row: Row, o: PageOptions): number[] => {
   const gaps = o.columnGap * (row.columns.length - 1);
-  const usable = o.contentWidth - gaps;
+  const usable = o.contentInlineSize - gaps;
   return row.columns.map((c) => (usable * c.widthPct) / 100);
 };
 
-/** 一列的高度＝最高的那一欄。 */
-function rowHeight(row: Row, o: PageOptions, m: Measurer): number {
-  const widths = columnWidths(row, o);
+/** 一列佔的 block 尺寸＝最長的那一欄。 */
+function rowBlockSize(row: Row, o: PageOptions, m: Measurer): number {
+  const sizes = columnInlineSizes(row, o);
   return Math.max(
     0,
     ...row.columns.map((col, i) =>
       col.blocks.reduce(
-        (sum, b) => sum + m.blockHeight(b, widths[i], o.contentHeight),
+        (sum, b) => sum + m.blockSize(b, sizes[i], o.contentBlockSize),
         0
       )
     )
@@ -83,16 +109,16 @@ function splitTextRow(
   available: number,
   o: PageOptions,
   m: Measurer
-): { head: Row; headHeight: number; tail: Row } | null {
-  const width = columnWidths(row, o)[0];
-  const lines = m.textLines(block, width);
+): { head: Row; headBlockSize: number; tail: Row } | null {
+  const inlineSize = columnInlineSizes(row, o)[0];
+  const lines = m.textLineSizes(block, inlineSize);
   if (lines.length < 2) return null;
 
   let used = 0;
   let fitCount = 0;
-  for (const h of lines) {
-    if (used + h > available) break;
-    used += h;
+  for (const size of lines) {
+    if (used + size > available) break;
+    used += size;
     fitCount += 1;
   }
   // 至少要留一行在這一頁，也至少要留一行給下一頁，否則不算切開
@@ -107,7 +133,7 @@ function splitTextRow(
 
   return {
     head: { ...row, columns: [{ ...row.columns[0], blocks: [headBlock] }] },
-    headHeight: used,
+    headBlockSize: used,
     // 後半保留同一個 row / block id：切開之後仍然是同一個元件
     tail: { ...row, breakBefore: false, columns: [{ ...row.columns[0], blocks: [tailBlock] }] },
   };
@@ -120,7 +146,7 @@ export function paginate(rows: Row[], o: PageOptions, m: Measurer): Page[] {
   let startedBy: Page['startedBy'] = 'first';
 
   const flush = (nextStartedBy: Page['startedBy']) => {
-    pages.push({ index: pages.length, items, startedBy, usedHeight: used });
+    pages.push({ index: pages.length, items, startedBy, usedBlockSize: used });
     items = [];
     used = 0;
     startedBy = nextStartedBy;
@@ -140,18 +166,18 @@ export function paginate(rows: Row[], o: PageOptions, m: Measurer): Page[] {
 
     const prevRow = items.length > 0 ? items[items.length - 1].row : null;
     const gap = items.length === 0 ? 0 : gapBefore(prevRow, row);
-    const h = rowHeight(row, o, m);
-    const available = o.contentHeight - used - gap;
+    const size = rowBlockSize(row, o, m);
+    const available = o.contentBlockSize - used - gap;
 
-    if (h <= available) {
+    if (size <= available) {
       items.push({
         row,
         gapBefore: gap,
-        height: h,
+        blockSize: size,
         continuedFromPrev: continued,
         continuesOnNext: false,
       });
-      used += gap + h;
+      used += gap + size;
       continue;
     }
 
@@ -162,11 +188,11 @@ export function paginate(rows: Row[], o: PageOptions, m: Measurer): Page[] {
         items.push({
           row: split.head,
           gapBefore: gap,
-          height: split.headHeight,
+          blockSize: split.headBlockSize,
           continuedFromPrev: continued,
           continuesOnNext: true,
         });
-        used += gap + split.headHeight;
+        used += gap + split.headBlockSize;
         flush('auto');
         queue.unshift({ row: split.tail, continued: true });
         continue;
@@ -184,11 +210,11 @@ export function paginate(rows: Row[], o: PageOptions, m: Measurer): Page[] {
     items.push({
       row,
       gapBefore: 0,
-      height: h,
+      blockSize: size,
       continuedFromPrev: continued,
       continuesOnNext: false,
     });
-    used += h;
+    used += size;
   }
 
   flush('auto');

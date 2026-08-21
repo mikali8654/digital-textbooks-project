@@ -29,7 +29,7 @@ describe('基本分頁', () => {
     const rows = Array.from({ length: 6 }, () => makeRow([makeText(linesOfText(3))]));
     const pages = run(rows);
     expect(pages.length).toBeGreaterThan(1);
-    for (const p of pages) expect(p.usedHeight).toBeLessThanOrEqual(pageOptions.contentHeight);
+    for (const p of pages) expect(p.usedBlockSize).toBeLessThanOrEqual(pageOptions.contentBlockSize);
   });
 
   it('每頁第一列的上緣間距一律是 0', () => {
@@ -48,7 +48,7 @@ describe('兩種換頁線', () => {
     expect(pages).toHaveLength(2);
     expect(pages[1].startedBy).toBe('manual');
     // 第一頁明明還很空
-    expect(pages[0].usedHeight).toBeLessThan(pageOptions.contentHeight / 2);
+    expect(pages[0].usedBlockSize).toBeLessThan(pageOptions.contentBlockSize / 2);
   });
 
   it('使用者放的換頁線位置不隨內容移動', () => {
@@ -136,15 +136,15 @@ describe('不滿一頁的留白', () => {
     ];
     const pages = run(rows);
     expect(pages[0].items).toHaveLength(1);
-    expect(pages[0].usedHeight).toBeLessThan(pageOptions.contentHeight);
+    expect(pages[0].usedBlockSize).toBeLessThan(pageOptions.contentBlockSize);
   });
 });
 
 describe('比一頁還高的元件', () => {
   it('盒狀模組會被縮到放得進一頁，不會溢出', () => {
     const tall = { ...table(), rows: 40 };
-    const pages = paginate([makeRow([tall])], { ...pageOptions, contentHeight: 120 }, fakeMeasurer);
+    const pages = paginate([makeRow([tall])], { ...pageOptions, contentBlockSize: 120 }, fakeMeasurer);
     expect(pages).toHaveLength(1);
-    expect(pages[0].usedHeight).toBeLessThanOrEqual(120);
+    expect(pages[0].usedBlockSize).toBeLessThanOrEqual(120);
   });
 });

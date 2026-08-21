@@ -32,23 +32,23 @@ const FIXED_HEIGHT: Record<string, number> = {
 export const CHARS_PER_LINE = 30;
 
 export const fakeMeasurer: Measurer = {
-  textLines(block: TextBlock) {
+  textLineSizes(block: TextBlock) {
     const chars = block.spans.map((s) => s.text).join('').length;
     const count = Math.max(1, Math.ceil(chars / CHARS_PER_LINE));
     return Array.from({ length: count }, () => LINE_HEIGHT[block.role]);
   },
-  blockHeight(block: Block, _widthPx: number, maxHeightPx: number) {
+  blockSize(block: Block, inlineSize: number, maxBlockSize: number) {
     if (block.type === 'text') {
-      return fakeMeasurer.textLines(block, _widthPx).reduce((a, b) => a + b, 0);
+      return fakeMeasurer.textLineSizes(block, inlineSize).reduce((a, b) => a + b, 0);
     }
-    // 盒狀模組比一頁還高時等比縮到放得進去
-    return Math.min(FIXED_HEIGHT[block.type] ?? 100, maxHeightPx);
+    // 盒狀模組比一頁還大時等比縮到放得進去
+    return Math.min(FIXED_HEIGHT[block.type] ?? 100, maxBlockSize);
   },
 };
 
 export const pageOptions: PageOptions = {
-  contentWidth: 720,
-  contentHeight: 400,
+  contentInlineSize: 720,
+  contentBlockSize: 400,
   columnGap: 16,
 };
 

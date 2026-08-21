@@ -56,7 +56,7 @@ function describeRow(row: Row): string {
 function render(pages: Page[], title: string) {
   console.log(`\n${'═'.repeat(74)}\n${title}\n${'═'.repeat(74)}`);
   for (const page of pages) {
-    const pct = Math.round((page.usedHeight / pageOptions.contentHeight) * 100);
+    const pct = Math.round((page.usedBlockSize / pageOptions.contentBlockSize) * 100);
     console.log(`\n┌─ 第 ${page.index + 1} 頁 ── ${START(page.startedBy)} ── 已用 ${pct}%`);
     for (const item of page.items) {
       const marks = [
@@ -66,7 +66,7 @@ function render(pages: Page[], title: string) {
       const gap = item.gapBefore ? `間距 ${String(item.gapBefore).padStart(2)}` : '　　　 ';
       console.log(`│ ${gap} │ ${describeRow(item.row)} ${marks}`);
     }
-    const left = pageOptions.contentHeight - page.usedHeight;
+    const left = pageOptions.contentBlockSize - page.usedBlockSize;
     if (left > 0) console.log(`│ ${' '.repeat(8)}│ ⌄ 其餘留白 ${left}px（使用者選擇的結果，不是錯誤）`);
     console.log('└' + '─'.repeat(72));
   }
