@@ -5,10 +5,10 @@ import { newId, resetIds } from './ids';
 import type { Doc, ImageBlock, TextBlock, VideoBlock } from './types';
 
 const image = (): ImageBlock => ({
-  id: newId('blk'), type: 'image', assetId: null, caption: '', aspectRatio: 1.5, popups: [],
+  id: newId('blk'), type: 'image', assetId: null, alt: '', caption: '', aspectRatio: 1.5, popups: [],
 });
 const video = (): VideoBlock => ({
-  id: newId('blk'), type: 'video', source: 'youtube', ref: 'abc', popups: [],
+  id: newId('blk'), type: 'video', source: 'youtube', ref: 'abc', title: '', popups: [],
 });
 
 const docWith = (...rows: Doc['rows']): Doc => ({ ...emptyDoc(), rows });
@@ -119,9 +119,9 @@ describe('文字', () => {
   it('改角色不會動到內容', () => {
     const t = makeText('星星的世界');
     const doc = docWith(makeRow([t]));
-    const next = applyAction(doc, { type: 'setTextRole', blockId: t.id, role: 'h1' });
+    const next = applyAction(doc, { type: 'setTextRole', blockId: t.id, role: 'sectionTitle' });
     const block = next.rows[0].columns[0].blocks[0] as TextBlock;
-    expect(block.role).toBe('h1');
+    expect(block.role).toBe('sectionTitle');
     expect(textOf(block)).toBe('星星的世界');
   });
 });

@@ -1,23 +1,43 @@
 /**
  * 文件模型。
  *
- * 核心：內容是一條連續的流，頁是算出來的。這裡沒有任何跟「頁」有關的欄位，
- * 頁由 paginate() 依可用高度切出來。也沒有 x / y 座標——元件的位置只有
+ * 核心：內容是一條連續的流，頁是算出來的。這裡沒有任何跟「數位頁」有關的欄位，
+ * 頁由 paginate() 依可用空間切出來。也沒有 x / y 座標——元件的位置只有
  * 「在流裡的第幾列」和「那一列怎麼分欄」兩個維度。
+ *
+ * 欄位對應客戶的《教科書 md 標記規格》。兩份文件用同一套詞彙，
+ * 對照時不需要翻譯。
  */
 
 // ── 內容角色 ─────────────────────────────────────────────
-/** 九種文字角色。字級／行高／字重由角色決定，老師不能逐段調整。 */
+/**
+ * 九種文字角色。字級／行高／字重由角色決定，老師不能逐段調整。
+ *
+ * 前四個是標題，跟 md 標記規格的四層一一對應：
+ *   #    課    → lessonTitle   課名 48/700
+ *   ##   區塊  → sectionTitle  大標 36/700
+ *   ###  項    → itemTitle     中標 28/700
+ *   #### 子項  → subItemTitle  小標 24/700
+ *
+ * 其餘五個不由階層決定，由內容型別決定（圖說跟著圖、注釋跟著 footnote）。
+ */
 export type TextRole =
-  | 'lessonTitle' // 課名 48/700
-  | 'h1' // 大標 36/700 — 自動切頁的依據
-  | 'h2' // 中標 28/700 — 自動切頁的依據
-  | 'h3' // 小標 24/700
+  | 'lessonTitle'
+  | 'sectionTitle'
+  | 'itemTitle'
+  | 'subItemTitle'
   | 'lead' // 導言 20/500
   | 'body' // 內文 18/400（預設）
   | 'supplement' // 補充 16/400
   | 'annotation' // 注釋 14/400
   | 'caption'; // 圖說 12/400
+
+export const HEADING_ROLES: TextRole[] = [
+  'lessonTitle',
+  'sectionTitle',
+  'itemTitle',
+  'subItemTitle',
+];
 
 /**
  * 內容分類。這是「系統讀不讀得懂教材」的關鍵欄位——沒有它，
@@ -37,7 +57,7 @@ export type ContentCategory =
   | 'extension';
 
 // ── 行內 ─────────────────────────────────────────────────
-/** 行內強調。字級不在這裡——字級由角色決定，行內只能改重量與顏色。 */
+/** 行內強調。字級不在這裡——字級由角色決定，行內只能改重量、顏色與語意標記。 */
 export type InlineSpan = {
   text: string;
   bold?: boolean;
@@ -45,10 +65,27 @@ export type InlineSpan = {
   color?: 'default' | 'accent' | 'secondary';
   href?: string;
   /**
-   * 注音。MVP 不算繪，但欄位保留——客戶日後接上注音系統時是「補上算繪」，
+   * 注音（md 規格的 `{閑|ㄒㄧㄢˊ}`）。
+   * MVP 不算繪，但欄位保留——客戶日後接上注音系統時是「補上算繪」，
    * 不是「改資料結構再回填全部教材」。
    */
   ruby?: string;
+  /**
+   * 重點詞（md 規格的 `==嘉南大圳==`）。
+   * 這是語意不是樣式——生字表與全書搜尋都靠它，不能只做成粗體。
+   */
+  keyword?: boolean;
+  /** 注釋參照（md 規格的 `[^1]`）。對應 Doc.footnotes 裡的 id。 */
+  footnoteRef?: string;
+};
+
+/** 注釋。國文一課可能有二十五條，是內容不是註腳裝飾。 */
+export type Footnote = {
+  id: string;
+  /** 被注釋的詞，例如「何許」。 */
+  term: string;
+  /** 注釋內容，例如「何處。許，處所。」 */
+  body: string;
 };
 
 // ── Pop-up ───────────────────────────────────────────────
@@ -92,6 +129,8 @@ type BlockBase = {
   /** 掛在這個元件上的補充，順序可拖曳調整。 */
   popups: PopupItem[];
   category?: ContentCategory;
+  /** 課本印在旁邊的小標籤，例如題型「快篩訊息」（md 規格的 `@題型[]`）。 */
+  label?: string;
 };
 
 export type TextBlock = BlockBase & {
@@ -103,8 +142,17 @@ export type TextBlock = BlockBase & {
 export type ImageBlock = BlockBase & {
   type: 'image';
   assetId: string | null;
-  /** 圖說是常駐顯示的一行小字，跟 Pop-up 是兩個層級，可以並存。 */
+  /**
+   * 一張圖上有三種文字，職責不同（md 規格明列）：
+   *   alt      圖在傳達什麼資訊，只有螢幕報讀軟體看得到
+   *   caption  課本印在圖下面那行字，照抄含課本圖號，所有人看得到
+   *   longDesc 複雜圖表的完整說明，alt 裝不下時才用，只有螢幕報讀軟體
+   *
+   * 圖說要保留課本的編號——社會的圖號每個跨頁重編，不能讓系統自動編。
+   */
+  alt: string;
   caption: string;
+  longDescription?: string;
   aspectRatio: number;
 };
 
@@ -112,9 +160,16 @@ export type VideoBlock = BlockBase & {
   type: 'video';
   source: 'upload' | 'youtube';
   ref: string;
+  title: string;
+  /** 字幕檔（md 規格的 `{字幕=video/x.vtt}`）。無障礙需要。 */
+  captionsRef?: string;
 };
 
-export type AudioBlock = BlockBase & { type: 'audio'; assetId: string | null };
+export type AudioBlock = BlockBase & {
+  type: 'audio';
+  assetId: string | null;
+  title: string;
+};
 
 export type ShapeBlock = BlockBase & {
   type: 'shape';
@@ -134,12 +189,37 @@ export type WebBlock = BlockBase & {
   type: 'web';
   url: string;
   title: string;
-  /** 書籤是一張小卡片；嵌入是一個完整的網頁框。 */
-  presentation: 'bookmark' | 'embed';
+  /**
+   * 書籤是一張小卡片；嵌入是一個完整的網頁框；
+   * qr 是課本印的 QR 碼（md 規格的 `@連結[](url){QR}`）。
+   */
+  presentation: 'bookmark' | 'embed' | 'qr';
 };
 
-/** 客戶要的「預留擴充空間」。本身不是功能，是佔位。 */
-export type ModuleBlock = BlockBase & { type: 'module'; moduleKind: string | null };
+/** 對話框。社會的課首情境圖、國文的角色對白都是真內容，不是裝飾。 */
+export type DialogueBlock = BlockBase & {
+  type: 'dialogue';
+  speaker: string;
+  text: string;
+};
+
+/** 頁尾參照，例如「配合習作第 24〜25 頁」。 */
+export type ReferenceBlock = BlockBase & {
+  type: 'reference';
+  target: string;
+  pages: string;
+};
+
+/**
+ * 互動模組。版面上跨課重複出現、由系統產生的元件，
+ * 例如國文頁側的朝代時間軸——它每一課都出現，只是反白的朝代不同。
+ * 同時也是客戶要的「預留擴充空間」。
+ */
+export type ModuleBlock = BlockBase & {
+  type: 'module';
+  moduleKind: string | null;
+  title?: string;
+};
 
 export type Block =
   | TextBlock
@@ -149,6 +229,8 @@ export type Block =
   | ShapeBlock
   | TableBlock
   | WebBlock
+  | DialogueBlock
+  | ReferenceBlock
   | ModuleBlock;
 
 export type BlockType = Block['type'];
@@ -170,6 +252,17 @@ export type Row = {
    * 系統放的換頁線不存在資料裡——那是 paginate() 算出來的。
    */
   breakBefore: boolean;
+  /**
+   * 紙本原頁碼（md 規格的 `@頁[91]`）。
+   *
+   * ⚠️ 這是錨點，不是換頁線，兩者完全獨立。數位頁是 4:3、字級固定、
+   * 間距放鬆，裝的資訊量跟紙本跨頁本來就不同，老師還會插補充、移圖片——
+   * 數位頁與紙本頁不會一致，也不應該一致。
+   *
+   * 它的用途是查表：老師說「翻到 93 頁」時，找到 printPage 為 93 的列，
+   * 再看它落在數位的第幾頁。一個紙本頁可以橫跨兩個數位頁，反之亦然。
+   */
+  printPage?: number;
 };
 
 // ── 整本設定 ─────────────────────────────────────────────
@@ -185,11 +278,27 @@ export type DocSettings = {
   textScale: 'sm' | 'md' | 'lg';
 };
 
+/** 來自 md frontmatter，用於書目與查找，不影響排版。 */
+export type DocMeta = {
+  sourceId?: string;
+  publisher?: string;
+  stage?: string;
+  grade?: string;
+  term?: string;
+  subject?: string;
+  unit?: string;
+  /** 紙本課本的頁碼範圍，例如 [90, 97]。 */
+  printPageRange?: [number, number];
+};
+
 export type Doc = {
   id: string;
   title: string;
   settings: DocSettings;
+  meta: DocMeta;
   rows: Row[];
+  /** 注釋表。InlineSpan.footnoteRef 指向這裡的 id。 */
+  footnotes: Footnote[];
   /**
    * 書與單元。MVP 的介面不做這兩層，欄位先留著，
    * 之後接上整本書的管理不需要改結構。

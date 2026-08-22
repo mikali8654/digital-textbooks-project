@@ -33,7 +33,7 @@ describe('書寫方向', () => {
   });
 
   it('引擎本身不知道有直排這回事——換方向只是換 PageOptions', () => {
-    const rows = [makeRow([makeText('星星的世界', 'h1')]), makeRow([makeText(linesOfText(2))])];
+    const rows = [makeRow([makeText('星星的世界', 'sectionTitle')]), makeRow([makeText(linesOfText(2))])];
     const square = { width: 600, height: 600 };
     const h = paginate(rows, pageOptionsFor({ writingMode: 'horizontal' }, square, GAP), fakeMeasurer);
     const v = paginate(rows, pageOptionsFor({ writingMode: 'vertical' }, square, GAP), fakeMeasurer);

@@ -24,7 +24,7 @@ describe('復原與重做', () => {
   it('可以來回', () => {
     const { blockId, history } = setup();
     let h = history;
-    h = dispatch(h, { type: 'setTextRole', blockId, role: 'h1' }, 0);
+    h = dispatch(h, { type: 'setTextRole', blockId, role: 'sectionTitle' }, 0);
     h = dispatch(h, { type: 'setTitle', title: '星星的世界' }, 5000);
     expect(h.present.title).toBe('星星的世界');
 

@@ -1,4 +1,5 @@
 import { isBoxLike } from './registry';
+import { HEADING_ROLES } from './types';
 import type { Block, Row, TextRole } from './types';
 
 /**
@@ -20,7 +21,7 @@ export const GAP = {
   section: 48,
 } as const;
 
-const HEADINGS: TextRole[] = ['lessonTitle', 'h1', 'h2', 'h3'];
+// 四個標題角色對應 md 標記規格的 課 / 區塊 / 項 / 子項
 
 const firstBlock = (row: Row): Block | null => row.columns[0]?.blocks[0] ?? null;
 const lastBlock = (row: Row): Block | null => {
@@ -47,7 +48,7 @@ export function gapBefore(prev: Row | null, next: Row): number {
   const prevRole = roleOf(lastBlock(prev));
 
   // 換節：進入新的大標或中標，永遠最大
-  if (nextRole === 'h1' || nextRole === 'h2') return GAP.section;
+  if (nextRole === 'sectionTitle' || nextRole === 'itemTitle') return GAP.section;
 
   // 附屬：圖說跟著它的圖、注釋跟著它的正文
   if (nextRole === 'caption' || nextRole === 'annotation') return GAP.attached;
@@ -56,7 +57,7 @@ export function gapBefore(prev: Row | null, next: Row): number {
   if (rowIsBoxLike(next) || rowIsBoxLike(prev)) return GAP.module;
 
   // 緊貼：標題與它自己的內文或導言
-  if (prevRole && HEADINGS.includes(prevRole)) return GAP.tight;
+  if (prevRole && HEADING_ROLES.includes(prevRole)) return GAP.tight;
 
   // 連續：同一節內相鄰的段落
   return GAP.continuous;

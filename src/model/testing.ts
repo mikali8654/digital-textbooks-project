@@ -9,9 +9,9 @@ import type { Block, TextBlock, TextRole } from './types';
  */
 const LINE_HEIGHT: Record<TextRole, number> = {
   lessonTitle: 56,
-  h1: 44,
-  h2: 36,
-  h3: 32,
+  sectionTitle: 44,
+  itemTitle: 36,
+  subItemTitle: 32,
   lead: 30,
   body: 28,
   supplement: 26,
@@ -26,6 +26,8 @@ const FIXED_HEIGHT: Record<string, number> = {
   shape: 120,
   table: 160,
   web: 96,
+  dialogue: 72,
+  reference: 32,
   module: 120,
 };
 

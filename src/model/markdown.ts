@@ -1,56 +1,289 @@
-import { makeRow, makeText } from './document';
-import type { Row, TextRole } from './types';
+import { newId } from './ids';
+import { parseInline } from './inline';
+import type {
+  Block,
+  Doc,
+  DocMeta,
+  DocSettings,
+  Footnote,
+  Row,
+  TextRole,
+} from './types';
 
 /**
- * md 匯入。
+ * md 匯入。對應客戶的《教科書 md 標記規格》。
  *
- * 只吃純文字——圖片、影音、注音都不隨 md 進來，那些是老師匯入之後
- * 自己插入的。匯入文字與後續的圖片編排是前後兩件事，這個切法讓 md
- * 只負責它做得到的事。
+ * 四層標題與文字角色一一對應，兩份文件用同一套詞彙：
+ *   #    課    → lessonTitle
+ *   ##   區塊  → sectionTitle
+ *   ###  項    → itemTitle
+ *   #### 子項  → subItemTitle
  */
 
-const HEADING: Record<number, TextRole> = { 1: 'h1', 2: 'h2', 3: 'h3' };
+const HEADING_BY_LEVEL: Record<number, TextRole> = {
+  1: 'lessonTitle',
+  2: 'sectionTitle',
+  3: 'itemTitle',
+  4: 'subItemTitle',
+};
 
 export type ImportOptions = {
   /**
-   * 自動切頁：在每個大標與中標前面各放一條換頁線。
+   * 自動切頁：在每個「區塊」（`##`）前面放一條換頁線。
+   *
+   * 只切區塊，不切「項」——一課通常有 5 個區塊但十幾個項，
+   * 每個項都切會得到二十幾頁，而有些項只有一張照片。
+   *
    * 這只是起手式，之後放在哪裡完全由使用者決定。
    */
   autoPageBreak: boolean;
 };
 
-export function parseMarkdown(md: string, opts: ImportOptions): Row[] {
-  const rows: Row[] = [];
-  // 空行分段；段落內的換行視為同一段
-  const chunks = md.replace(/\r\n?/g, '\n').split(/\n{2,}/);
+export type ImportResult = {
+  rows: Row[];
+  meta: DocMeta;
+  settings: Partial<DocSettings>;
+  footnotes: Footnote[];
+  title: string;
+  /** 沒有對應規則、被當成內文處理的行。用來檢查格式有沒有寫錯。 */
+  unrecognized: string[];
+};
 
-  for (const raw of chunks) {
-    const chunk = raw.trim();
-    if (!chunk) continue;
+// ── frontmatter ──────────────────────────────────────────
+function parseFrontmatter(src: string): { meta: DocMeta; settings: Partial<DocSettings>; title: string; rest: string } {
+  const m = /^---\n([\s\S]*?)\n---\n?/.exec(src);
+  if (!m) return { meta: {}, settings: {}, title: '', rest: src };
 
-    const heading = /^(#{1,3})\s+(.*)$/.exec(chunk);
-    if (heading) {
-      const level = heading[1].length;
-      const role = HEADING[level];
-      const breakBefore = opts.autoPageBreak && (role === 'h1' || role === 'h2');
-      rows.push(makeRow([makeText(heading[2].trim(), role)], breakBefore));
-      continue;
-    }
-
-    if (chunk.startsWith('>')) {
-      const body = chunk
-        .split('\n')
-        .map((l) => l.replace(/^>\s?/, ''))
-        .join('');
-      rows.push(makeRow([makeText(body, 'annotation')]));
-      continue;
-    }
-
-    // 其餘一律視為內文，段落內的換行併成一段
-    rows.push(makeRow([makeText(chunk.split('\n').join(''), 'body')]));
+  const fields: Record<string, string> = {};
+  for (const line of m[1].split('\n')) {
+    const kv = /^([a-zA-Z_]+):\s*(.*)$/.exec(line);
+    if (kv) fields[kv[1]] = kv[2].replace(/\s+#.*$/, '').trim();
   }
 
-  // 第一頁不需要換頁線
+  const range = /\[\s*(\d+)\s*,\s*(\d+)\s*\]/.exec(fields.page ?? '');
+  return {
+    title: fields.title ?? '',
+    settings: fields.direction === '直排' ? { writingMode: 'vertical' } : {},
+    meta: {
+      sourceId: fields.id,
+      publisher: fields.publisher,
+      stage: fields.stage,
+      grade: fields.grade,
+      term: fields.term,
+      subject: fields.subject,
+      unit: fields.unit,
+      printPageRange: range ? [Number(range[1]), Number(range[2])] : undefined,
+    },
+    rest: src.slice(m[0].length),
+  };
+}
+
+// ── 單行指令 ─────────────────────────────────────────────
+const RE = {
+  heading: /^(#{1,4})\s+(.*)$/,
+  image: /^!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)$/,
+  dialogue: /@對話\[([^\]]*)\]\{([^}]*)\}/g,
+  printPage: /^@頁\[(\d+)\]$/,
+  reference: /^@參照\[([^\]]*)\]\{([^}]*)\}$/,
+  link: /^@連結\[([^\]]*)\]\(([^)]+)\)(\{QR\})?$/,
+  audio: /^@音檔\[([^\]]*)\]\(([^)]+)\)$/,
+  video: /^@影片\[([^\]]*)\]\(([^)]+)\)(?:\{字幕=([^}]+)\})?$/,
+  label: /^@題型\[([^\]]*)\]$/,
+  module: /^@模組\[([^\]]*)\]\(([^)]+)\)$/,
+  /** 區塊層級的方向覆蓋。MVP 不做，讀到就跳過並記錄。 */
+  writingOverride: /^@排版\[([^\]]*)\]$/,
+  footnoteDef: /^\[\^([^\]]+)\]:\s*(\S+)\s+([\s\S]*)$/,
+  tableRow: /^\|(.+)\|$/,
+  tableSep: /^\|[\s:|-]+\|$/,
+};
+
+const stripIndent = (s: string) => s.replace(/^[　\s]+/, '');
+
+const cells = (line: string) =>
+  line.slice(1, -1).split('|').map((c) => c.trim());
+
+export function parseMarkdown(src: string, opts: ImportOptions): ImportResult {
+  const { meta, settings, title, rest } = parseFrontmatter(src);
+  const rows: Row[] = [];
+  const footnotes: Footnote[] = [];
+  const unrecognized: string[] = [];
+
+  /** 下一列要帶的錨點與標籤。@頁 與 @題型 都是「標在下一段內容上」。 */
+  let pendingPrintPage: number | undefined;
+  let pendingLabel: string | undefined;
+
+  const push = (blocks: Block[], breakBefore = false) => {
+    if (blocks.length === 0) return;
+    if (pendingLabel) {
+      blocks[0] = { ...blocks[0], label: pendingLabel };
+      pendingLabel = undefined;
+    }
+    rows.push({
+      id: newId('row'),
+      breakBefore,
+      printPage: pendingPrintPage,
+      columns: [{ id: newId('col'), widthPct: 100, blocks }],
+    });
+    pendingPrintPage = undefined;
+  };
+
+  const text = (raw: string, role: TextRole): Block => ({
+    id: newId('blk'),
+    type: 'text',
+    role,
+    popups: [],
+    spans: parseInline(raw),
+  });
+
+  const chunks = rest.replace(/\r\n?/g, '\n').split(/\n{2,}/);
+
+  for (const rawChunk of chunks) {
+    const chunk = rawChunk.trim();
+    if (!chunk) continue;
+    const lines = chunk.split('\n').map((l) => l.trim()).filter(Boolean);
+
+    // 表格：整段都是 | 開頭
+    if (lines.length >= 2 && lines.every((l) => RE.tableRow.test(l))) {
+      const body = lines.filter((l) => !RE.tableSep.test(l));
+      const grid = body.map(cells);
+      push([
+        {
+          id: newId('blk'),
+          type: 'table',
+          rows: grid.length,
+          cols: Math.max(...grid.map((r) => r.length)),
+          cells: grid,
+          hasHeader: lines.some((l) => RE.tableSep.test(l)),
+          popups: [],
+        },
+      ]);
+      continue;
+    }
+
+    // 注釋定義可能整段都是
+    if (lines.every((l) => RE.footnoteDef.test(l))) {
+      for (const line of lines) {
+        const f = RE.footnoteDef.exec(line)!;
+        footnotes.push({ id: f[1], term: f[2], body: f[3].trim() });
+      }
+      continue;
+    }
+
+    // 一段裡可能有多個對話框
+    if (lines.every((l) => l.startsWith('@對話['))) {
+      const blocks: Block[] = [];
+      for (const m of chunk.matchAll(RE.dialogue)) {
+        blocks.push({
+          id: newId('blk'),
+          type: 'dialogue',
+          speaker: m[1],
+          text: m[2],
+          popups: [],
+        });
+      }
+      for (const b of blocks) push([b]);
+      continue;
+    }
+
+    // 其餘一段一列
+    const line = lines.join('');
+    let m: RegExpExecArray | null;
+
+    if ((m = RE.heading.exec(line))) {
+      const role = HEADING_BY_LEVEL[m[1].length];
+      push([text(m[2], role)], opts.autoPageBreak && role === 'sectionTitle');
+      continue;
+    }
+    if ((m = RE.printPage.exec(line))) {
+      pendingPrintPage = Number(m[1]);
+      continue;
+    }
+    if ((m = RE.label.exec(line))) {
+      pendingLabel = m[1];
+      continue;
+    }
+    if ((m = RE.writingOverride.exec(line))) {
+      // 區塊層級的直橫排覆蓋，MVP 不做（見 HANDOVER）
+      unrecognized.push(line);
+      continue;
+    }
+    if ((m = RE.image.exec(line))) {
+      push([
+        {
+          id: newId('blk'),
+          type: 'image',
+          assetId: m[2],
+          alt: m[1],
+          caption: m[3] ?? '',
+          aspectRatio: 1.5,
+          popups: [],
+        },
+      ]);
+      continue;
+    }
+    if ((m = RE.reference.exec(line))) {
+      push([{ id: newId('blk'), type: 'reference', target: m[1], pages: m[2], popups: [] }]);
+      continue;
+    }
+    if ((m = RE.link.exec(line))) {
+      push([
+        {
+          id: newId('blk'),
+          type: 'web',
+          url: m[2],
+          title: m[1],
+          presentation: m[3] ? 'qr' : 'bookmark',
+          popups: [],
+        },
+      ]);
+      continue;
+    }
+    if ((m = RE.audio.exec(line))) {
+      push([{ id: newId('blk'), type: 'audio', assetId: m[2], title: m[1], popups: [] }]);
+      continue;
+    }
+    if ((m = RE.video.exec(line))) {
+      push([
+        {
+          id: newId('blk'),
+          type: 'video',
+          source: 'upload',
+          ref: m[2],
+          title: m[1],
+          captionsRef: m[3],
+          popups: [],
+        },
+      ]);
+      continue;
+    }
+    if ((m = RE.module.exec(line))) {
+      push([{ id: newId('blk'), type: 'module', moduleKind: m[2], title: m[1], popups: [] }]);
+      continue;
+    }
+    if (line.startsWith('>')) {
+      push([text(lines.map((l) => l.replace(/^>\s?/, '')).join(''), 'annotation')]);
+      continue;
+    }
+    if (line.startsWith('@')) {
+      unrecognized.push(line);
+      continue;
+    }
+
+    push([text(stripIndent(lines.map(stripIndent).join('')), 'body')]);
+  }
+
   if (rows.length > 0) rows[0] = { ...rows[0], breakBefore: false };
-  return rows;
+  return { rows, meta, settings, footnotes, title, unrecognized };
+}
+
+/** 把匯入結果套進一份文件。 */
+export function applyImport(doc: Doc, result: ImportResult): Doc {
+  return {
+    ...doc,
+    title: result.title || doc.title,
+    settings: { ...doc.settings, ...result.settings },
+    meta: { ...doc.meta, ...result.meta },
+    rows: result.rows,
+    footnotes: result.footnotes,
+  };
 }

@@ -40,7 +40,9 @@ export function emptyDoc(title = '未命名教材'): Doc {
     id: newId('doc'),
     title,
     settings: { writingMode: 'horizontal', aspectRatio: '4:3', textScale: 'md' },
+    meta: {},
     rows: [makeRow([makeText('', 'lessonTitle')])],
+    footnotes: [],
     bookId: null,
     unitId: null,
   };

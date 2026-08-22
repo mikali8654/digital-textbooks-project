@@ -8,6 +8,7 @@ const image = (): ImageBlock => ({
   id: newId('blk'),
   type: 'image',
   assetId: null,
+  alt: '',
   caption: '',
   aspectRatio: 1.5,
   popups: [],
@@ -25,7 +26,7 @@ describe('間距編碼歸屬', () => {
   });
 
   it('大標接內文是緊貼', () => {
-    const prev = makeRow([makeText('夜空裡的星座', 'h1')]);
+    const prev = makeRow([makeText('夜空裡的星座', 'sectionTitle')]);
     const next = makeRow([makeText('晴朗的夜晚', 'body')]);
     expect(gapBefore(prev, next)).toBe(GAP.tight);
   });
@@ -62,19 +63,19 @@ describe('間距編碼歸屬', () => {
 
   it('進入新的大標是換節，永遠最大', () => {
     const prev = makeRow([makeText('前一段課文', 'body')]);
-    const next = makeRow([makeText('新的一節', 'h1')]);
+    const next = makeRow([makeText('新的一節', 'sectionTitle')]);
     expect(gapBefore(prev, next)).toBe(GAP.section);
   });
 
   it('換節勝過換模組——圖後面接大標仍然是換節', () => {
     const prev = makeRow([image()]);
-    const next = makeRow([makeText('新的一節', 'h1')]);
+    const next = makeRow([makeText('新的一節', 'sectionTitle')]);
     expect(gapBefore(prev, next)).toBe(GAP.section);
   });
 
   it('導言接大標是換節，不是緊貼', () => {
     const prev = makeRow([makeText('導言', 'lead')]);
-    const next = makeRow([makeText('大標', 'h1')]);
+    const next = makeRow([makeText('大標', 'sectionTitle')]);
     expect(gapBefore(prev, next)).toBe(GAP.section);
   });
 });

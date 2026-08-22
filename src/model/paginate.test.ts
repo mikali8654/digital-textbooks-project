@@ -8,7 +8,7 @@ import type { ImageBlock, Row, TableBlock } from './types';
 const run = (rows: Row[]) => paginate(rows, pageOptions, fakeMeasurer);
 
 const image = (): ImageBlock => ({
-  id: newId('blk'), type: 'image', assetId: null, caption: '', aspectRatio: 1.5, popups: [],
+  id: newId('blk'), type: 'image', assetId: null, alt: '', caption: '', aspectRatio: 1.5, popups: [],
 });
 const table = (): TableBlock => ({
   id: newId('blk'), type: 'table', rows: 3, cols: 3,

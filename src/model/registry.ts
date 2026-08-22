@@ -29,6 +29,8 @@ export const blockRegistry: Record<BlockType, BlockMeta> = {
   shape: { label: '圖案', splittable: false, canHavePopup: true, boxLike: true },
   table: { label: '表格', splittable: false, canHavePopup: true, boxLike: true },
   web: { label: '網頁', splittable: false, canHavePopup: false, boxLike: true },
+  dialogue: { label: '對話框', splittable: false, canHavePopup: false, boxLike: true },
+  reference: { label: '參照', splittable: false, canHavePopup: false, boxLike: false },
   module: { label: '模組', splittable: false, canHavePopup: true, boxLike: true },
 };
 
