@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "inspect": "vite-node scripts/inspect.ts"
+    "inspect": "vite-node scripts/inspect.ts",
+    "coverage": "vite-node scripts/coverage.ts"
   },
   "dependencies": {
     "react": "^19.2.8",

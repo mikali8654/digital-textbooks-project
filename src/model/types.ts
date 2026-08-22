@@ -219,6 +219,24 @@ export type ModuleBlock = BlockBase & {
   type: 'module';
   moduleKind: string | null;
   title?: string;
+  /** 模組的參數，例如朝代時間軸要反白哪個朝代。原樣保留給模組自己解讀。 */
+  params?: Record<string, string>;
+};
+
+/**
+ * 題目。題型標籤（快篩訊息／瞄準文心／文意理解／作法探討）決定它在
+ * 檢測站裡屬於哪一類，選項是結構化的，不是壓成一段的文字。
+ */
+export type QuestionBlock = BlockBase & {
+  type: 'question';
+  /** 題號，沿用教材上的編號。 */
+  number: string;
+  /** 題型標籤。沒有標的題目就是 undefined。 */
+  questionType?: string;
+  stem: InlineSpan[];
+  options: { key: string; text: InlineSpan[] }[];
+  /** 多選題。從題幹的「（多選題）」判斷。 */
+  multiple: boolean;
 };
 
 export type Block =
@@ -231,7 +249,8 @@ export type Block =
   | WebBlock
   | DialogueBlock
   | ReferenceBlock
-  | ModuleBlock;
+  | ModuleBlock
+  | QuestionBlock;
 
 export type BlockType = Block['type'];
 

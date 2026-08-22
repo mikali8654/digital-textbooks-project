@@ -146,9 +146,18 @@ describe('自訂指令', () => {
     expect(first(r, 'module')).toMatchObject({ moduleKind: 'timeline/dynasty', title: '朝代時間軸' });
   });
 
-  it('沒有實作的指令會被記錄，不會靜靜吞掉', () => {
+  it('刻意不做的指令記在 skipped，跟格式寫錯分開', () => {
     const r = parse('@排版[橫排]\n\n內文');
-    expect(r.unrecognized).toEqual(['@排版[橫排]']);
+    // skipped＝我們決定不做；unrecognized＝格式可能寫錯。
+    // 交接時要跟客戶說明的是前者，要請人修正的是後者。
+    expect(r.skipped).toEqual(['@排版[橫排]']);
+    expect(r.unrecognized).toEqual([]);
+  });
+
+  it('真的不認得的指令才進 unrecognized', () => {
+    const r = parse('@不存在的指令[xxx]\n\n內文');
+    expect(r.unrecognized).toEqual(['@不存在的指令[xxx]']);
+    expect(r.skipped).toEqual([]);
   });
 });
 
@@ -197,5 +206,62 @@ describe('拿真的社會課本檢驗', () => {
   it('二十一張圖的替代文字全部保住', () => {
     const imgs = blocks(r).filter((b) => b.type === 'image') as ImageBlock[];
     expect(imgs.every((i) => i.alt.length > 0)).toBe(true);
+  });
+});
+
+describe('國文：直排、題目、模組', () => {
+  const r = parseMarkdown(readFileSync('design/sample-guowen.md', 'utf8'), {
+    autoPageBreak: true,
+  });
+  const blocks = r.rows.flatMap((row) => row.columns.flatMap((c) => c.blocks));
+
+  it('frontmatter 的直排會設定到書寫方向', () => {
+    expect(r.settings.writingMode).toBe('vertical');
+  });
+
+  it('注釋全數收進文件層', () => {
+    expect(r.footnotes).toHaveLength(30);
+    expect(r.footnotes[0]).toMatchObject({ id: '1', term: '何許' });
+  });
+
+  it('紙本頁碼是錨點，不造成換頁', () => {
+    const anchors = r.rows.filter((row) => row.printPage != null);
+    expect(anchors.map((row) => row.printPage)).toEqual([
+      113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123,
+    ]);
+    // 有錨點的列不一定是某頁的第一列——分頁由內容長度決定
+    expect(anchors.some((row) => !row.breakBefore)).toBe(true);
+  });
+
+  it('題目是結構化的，題型標籤與選項分開存', () => {
+    const qs = blocks.filter((b) => b.type === 'question');
+    expect(qs).toHaveLength(5);
+    expect(qs[0]).toMatchObject({
+      number: '1',
+      questionType: '快篩訊息',
+      multiple: true,
+    });
+    expect(qs[0].type === 'question' && qs[0].options.map((o) => o.key)).toEqual([
+      'A', 'B', 'C', 'D', 'E',
+    ]);
+    expect(qs[1]).toMatchObject({ questionType: '瞄準文心', multiple: false });
+  });
+
+  it('模組保留種類與參數，交給模組自己解讀', () => {
+    const mods = blocks.filter((b) => b.type === 'module');
+    expect(mods).toHaveLength(1);
+    expect(mods[0]).toMatchObject({
+      title: '朝代時間軸',
+      moduleKind: 'timeline/dynasty',
+      params: { 標示: '魏晉南北朝' },
+    });
+  });
+
+  it('沒有任何構造被吞掉', () => {
+    expect(r.unrecognized).toEqual([]);
+  });
+
+  it('MVP 不做的指令會被記錄，不是丟掉', () => {
+    expect(r.skipped).toEqual(['@排版[橫排]', '@排版[橫排]']);
   });
 });

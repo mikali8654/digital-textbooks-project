@@ -1,6 +1,7 @@
 import { newId } from './ids';
 import { parseInline } from './inline';
 import type {
+  InlineSpan,
   Block,
   Doc,
   DocMeta,
@@ -47,6 +48,12 @@ export type ImportResult = {
   title: string;
   /** 沒有對應規則、被當成內文處理的行。用來檢查格式有沒有寫錯。 */
   unrecognized: string[];
+  /**
+   * 認得出來、但 MVP 刻意不實作的指令（例如區塊層級的 @排版）。
+   * 跟 unrecognized 分開，因為這兩者的意義不同：一個是格式寫錯，
+   * 一個是我們決定不做。交接時要說明的是這一份。
+   */
+  skipped: string[];
 };
 
 // ── frontmatter ──────────────────────────────────────────
@@ -89,7 +96,10 @@ const RE = {
   audio: /^@音檔\[([^\]]*)\]\(([^)]+)\)$/,
   video: /^@影片\[([^\]]*)\]\(([^)]+)\)(?:\{字幕=([^}]+)\})?$/,
   label: /^@題型\[([^\]]*)\]$/,
-  module: /^@模組\[([^\]]*)\]\(([^)]+)\)$/,
+  module: /^@模組\[([^\]]*)\]\(([^)]+)\)(?:\{([^}]*)\})?$/,
+  /** 題目：`1. @題型[標籤] 題幹`，後面接縮排的 `- (A) 選項`。 */
+  questionStem: /^(\d+)\.\s*(?:@題型\[([^\]]*)\]\s*)?(.*)$/,
+  questionOption: /^\s*-\s*[（(]([A-Za-z])[）)]\s*(.*)$/,
   /** 區塊層級的方向覆蓋。MVP 不做，讀到就跳過並記錄。 */
   writingOverride: /^@排版\[([^\]]*)\]$/,
   footnoteDef: /^\[\^([^\]]+)\]:\s*(\S+)\s+([\s\S]*)$/,
@@ -99,6 +109,17 @@ const RE = {
 
 const stripIndent = (s: string) => s.replace(/^[　\s]+/, '');
 
+/** `標示=魏晉南北朝,寬=full` → { 標示: '魏晉南北朝', 寬: 'full' } */
+function parseParams(raw?: string): Record<string, string> | undefined {
+  if (!raw) return undefined;
+  const out: Record<string, string> = {};
+  for (const part of raw.split(',')) {
+    const i = part.indexOf('=');
+    if (i > 0) out[part.slice(0, i).trim()] = part.slice(i + 1).trim();
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 const cells = (line: string) =>
   line.slice(1, -1).split('|').map((c) => c.trim());
 
@@ -107,6 +128,7 @@ export function parseMarkdown(src: string, opts: ImportOptions): ImportResult {
   const rows: Row[] = [];
   const footnotes: Footnote[] = [];
   const unrecognized: string[] = [];
+  const skipped: string[] = [];
 
   /** 下一列要帶的錨點與標籤。@頁 與 @題型 都是「標在下一段內容上」。 */
   let pendingPrintPage: number | undefined;
@@ -185,6 +207,31 @@ export function parseMarkdown(src: string, opts: ImportOptions): ImportResult {
       continue;
     }
 
+    // 題目：一段裡是「N. 題幹」加上縮排的「- (A) 選項」
+    if (RE.questionStem.test(lines[0]) && lines.some((l) => RE.questionOption.test(l))) {
+      const stem = RE.questionStem.exec(lines[0])!;
+      const options: { key: string; text: InlineSpan[] }[] = [];
+      for (const l of lines.slice(1)) {
+        const o = RE.questionOption.exec(l);
+        if (o) options.push({ key: o[1].toUpperCase(), text: parseInline(o[2]) });
+      }
+      const stemText = stem[3];
+      push([
+        {
+          id: newId('blk'),
+          type: 'question',
+          number: stem[1],
+          questionType: stem[2] || pendingLabel,
+          stem: parseInline(stemText),
+          options,
+          multiple: /多選/.test(stemText),
+          popups: [],
+        },
+      ]);
+      pendingLabel = undefined;
+      continue;
+    }
+
     // 其餘一段一列
     const line = lines.join('');
     let m: RegExpExecArray | null;
@@ -203,8 +250,9 @@ export function parseMarkdown(src: string, opts: ImportOptions): ImportResult {
       continue;
     }
     if ((m = RE.writingOverride.exec(line))) {
-      // 區塊層級的直橫排覆蓋，MVP 不做（見 HANDOVER）
-      unrecognized.push(line);
+      // 區塊層級的直橫排覆蓋，MVP 不做（見 HANDOVER）。
+      // 記錄下來而不是丟掉——客戶要知道 md 裡有這個指令而編輯器忽略了它。
+      skipped.push(line);
       continue;
     }
     if ((m = RE.image.exec(line))) {
@@ -257,7 +305,16 @@ export function parseMarkdown(src: string, opts: ImportOptions): ImportResult {
       continue;
     }
     if ((m = RE.module.exec(line))) {
-      push([{ id: newId('blk'), type: 'module', moduleKind: m[2], title: m[1], popups: [] }]);
+      push([
+        {
+          id: newId('blk'),
+          type: 'module',
+          moduleKind: m[2],
+          title: m[1],
+          params: parseParams(m[3]),
+          popups: [],
+        },
+      ]);
       continue;
     }
     if (line.startsWith('>')) {
@@ -273,7 +330,7 @@ export function parseMarkdown(src: string, opts: ImportOptions): ImportResult {
   }
 
   if (rows.length > 0) rows[0] = { ...rows[0], breakBefore: false };
-  return { rows, meta, settings, footnotes, title, unrecognized };
+  return { rows, meta, settings, footnotes, title, unrecognized, skipped };
 }
 
 /** 把匯入結果套進一份文件。 */
