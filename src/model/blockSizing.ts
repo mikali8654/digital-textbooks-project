@@ -9,8 +9,12 @@ import type { Block } from './types';
  * 文字不走這裡：文字的高度只有瀏覽器排一次才知道。
  */
 
-/** 盒狀模組最多佔一頁的多少。避免一張圖獨佔整頁，也留空間給圖說。 */
-const MAX_SHARE_OF_PAGE = 0.62;
+/**
+ * 圖片預設吃滿欄寬，只有在「照比例算出來會超出一頁」時才等比縮小。
+ *
+ * 不設美觀上限——那會讓圖片比文字窄，左右邊界對不齊，破壞版面的系統性。
+ * 老師覺得太大就自己縮（ImageBlock.widthPct），那是他的決定，不是預設值。
+ */
 
 /** 沒有內在比例的區塊，就用固定的 block 尺寸。 */
 const FIXED: Record<string, number> = {
@@ -42,7 +46,7 @@ export function aspectBlockSize(aspectRatio: number, ctx: SizingContext): number
   const natural = ctx.vertical
     ? ctx.inlineSize * aspectRatio
     : ctx.inlineSize / aspectRatio;
-  return Math.min(natural, ctx.maxBlockSize * MAX_SHARE_OF_PAGE);
+  return Math.min(natural, ctx.maxBlockSize);
 }
 
 /**
@@ -57,11 +61,15 @@ export function blockBox(
 
   if (block.type === 'image' || block.type === 'video') {
     const ratio = block.type === 'image' ? block.aspectRatio : 16 / 9;
-    const blockSize = aspectBlockSize(ratio, ctx);
-    // 等比縮小之後，inline 軸也要跟著縮，否則會變形
+    // 老師縮過的圖用他設的比例，沒縮過就吃滿欄寬
+    const pct = (block.type === 'image' ? block.widthPct : undefined) ?? 100;
+    const wanted = (ctx.inlineSize * pct) / 100;
+
+    const blockSize = aspectBlockSize(ratio, { ...ctx, inlineSize: wanted });
+    // 若因為超出一頁而被縮小，inline 軸要跟著縮，否則會變形
     const inlineSize = ctx.vertical ? blockSize / ratio : blockSize * ratio;
     return {
-      inlineSize: Math.min(inlineSize, ctx.inlineSize),
+      inlineSize: Math.min(inlineSize, wanted),
       blockSize,
     };
   }

@@ -153,7 +153,19 @@ export type ImageBlock = BlockBase & {
   alt: string;
   caption: string;
   longDescription?: string;
+  /**
+   * 圖片本身的長寬比（寬÷高）。
+   *
+   * ⚠️ md 匯入時給的是暫定值——md 只有檔案路徑，讀不到尺寸。
+   * 真實比例要在「上傳圖片」時從 naturalWidth / naturalHeight 讀出來寫進來，
+   * 那是圖片元件的工作（見 HANDOVER）。在那之前版面高度會是估的。
+   */
   aspectRatio: number;
+  /**
+   * 老師把圖縮小之後佔欄寬的百分比。沒設就是吃滿欄寬——
+   * 預設與文字對齊同一組邊界，縮小是老師主動的決定。
+   */
+  widthPct?: number;
 };
 
 export type VideoBlock = BlockBase & {

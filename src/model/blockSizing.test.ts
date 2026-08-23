@@ -49,8 +49,16 @@ describe('區塊尺寸是量測與渲染的唯一來源', () => {
     expect(blockBox(table(), tiny)!.blockSize).toBeLessThanOrEqual(100);
   });
 
-  it('一張圖不會獨佔整頁——要留空間給圖說與後續內容', () => {
-    const box = blockBox(image(0.3), CTX)!;
-    expect(box.blockSize).toBeLessThan(CTX.maxBlockSize);
+  it('圖片預設吃滿欄寬，跟文字對齊同一組邊界', () => {
+    // 3:2 的橫圖在 896 寬的欄裡：寬度就是 896，不因為美觀理由縮小
+    const box = blockBox(image(1.5), CTX)!;
+    expect(box.inlineSize).toBe(CTX.inlineSize);
+    expect(box.blockSize).toBeCloseTo(CTX.inlineSize / 1.5, 5);
+  });
+
+  it('老師縮過的圖用他設的比例', () => {
+    const half = { ...image(1.5), widthPct: 50 };
+    const box = blockBox(half, CTX)!;
+    expect(box.inlineSize).toBe(CTX.inlineSize / 2);
   });
 });
