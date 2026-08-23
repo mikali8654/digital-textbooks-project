@@ -52,19 +52,33 @@ export function App() {
   useEffect(() => {
     const el = stageRef.current;
     if (!el) return;
+    let raf = 0;
     const recompute = () => {
       const page = PAGE_SIZE[doc.settings.aspectRatio];
-      const fitW = (el.clientWidth - 96) / page.width;
+      // 版面還沒完成、或分頁被隱藏時量到的寬度不足以放下任何內容，
+      // 算出來是負數會被夾成最小倍率，而且若沒有其他事件把它叫回來
+      // 就會永遠停在錯的值。量不到就下一幀再試，不要把錯的結果寫進狀態。
+      // （分頁隱藏時 requestAnimationFrame 不會觸發，所以不會空轉。）
+      const usable = el.clientWidth - 96;
+      if (usable <= 0) {
+        raf = requestAnimationFrame(recompute);
+        return;
+      }
+      const fitW = usable / page.width;
       // 預覽是一次一頁，高度也要塞得下
       const fitH = preview ? (el.clientHeight - 96) / page.height : Infinity;
       setScale(Math.max(0.2, Math.min(1, fitW, fitH)));
     };
     recompute();
     window.addEventListener('resize', recompute);
+    // 從隱藏切回顯示時尺寸會變，但不一定有 resize 事件
+    document.addEventListener('visibilitychange', recompute);
     const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(recompute);
     ro?.observe(el);
     return () => {
+      cancelAnimationFrame(raf);
       window.removeEventListener('resize', recompute);
+      document.removeEventListener('visibilitychange', recompute);
       ro?.disconnect();
     };
   }, [doc.settings.aspectRatio, preview]);

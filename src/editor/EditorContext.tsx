@@ -1,4 +1,5 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { useRowDrag } from './useRowDrag';
 import type { DropTarget } from '../model/actions';
 import type { useEditor } from '../hooks/useEditor';
 
@@ -23,6 +24,9 @@ export type EditorUI = {
   /** 目前滑過的落點。落點是離散的幾個，不是連續平面。 */
   dropTarget: DropTarget | null;
   setDropTarget: (t: DropTarget | null) => void;
+
+  /** 從握把開始拖曳。 */
+  startDrag: (e: PointerEvent, rowId: string) => void;
 };
 
 const Ctx = createContext<(Editor & EditorUI) | null>(null);
@@ -32,6 +36,13 @@ export function EditorProvider({ editor, children }: { editor: Editor; children:
   const [insertAt, openInsert] = useState<number | null>(null);
   const [draggingRowId, setDraggingRowId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+
+  const commit = useCallback(
+    (rowId: string, target: DropTarget) =>
+      editor.dispatch({ type: 'moveRow', rowId, target }),
+    [editor]
+  );
+  const { startDrag } = useRowDrag(setDraggingRowId, setDropTarget, commit);
 
   const value = useMemo(
     () => ({
@@ -44,8 +55,9 @@ export function EditorProvider({ editor, children }: { editor: Editor; children:
       setDraggingRowId,
       dropTarget,
       setDropTarget,
+      startDrag,
     }),
-    [editor, selectedBlockId, insertAt, draggingRowId, dropTarget]
+    [editor, selectedBlockId, insertAt, draggingRowId, dropTarget, startDrag]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

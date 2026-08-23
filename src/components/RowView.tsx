@@ -9,7 +9,6 @@ import { COLUMN_GAP } from '../model/pageSize';
 import { makeText } from '../model/document';
 import { newId } from '../model/ids';
 import type { PageItem } from '../model/paginate';
-import type { DropTarget } from '../model/actions';
 import type { Block, BlockType, DocSettings } from '../model/types';
 
 type Props = {
@@ -52,6 +51,7 @@ export function RowView({ item, settings, contentInline, contentBlock, rowIndex 
   const ed = useEditorCtx();
   const vertical = settings.writingMode === 'vertical';
   const ref = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
 
   const row = item.row;
   const selected = ed?.selectedBlockId
@@ -67,35 +67,11 @@ export function RowView({ item, settings, contentInline, contentBlock, rowIndex 
 
   const dragging = ed?.draggingRowId === row.id;
 
-  /**
-   * 落點直接當參數傳進來，不從 state 讀。
-   *
-   * 從 state 讀會相依於「dragover 已經觸發過、React 也已經重新渲染」——
-   * 真實拖曳時 dragover 連續觸發所以剛好會動，但那是巧合不是保證。
-   * 放開的當下就知道放在哪，不必繞一圈。
-   */
-  const commitDrop = (target: DropTarget) => {
-    if (!ed?.draggingRowId) return;
-    ed.dispatch({ type: 'moveRow', rowId: ed.draggingRowId, target });
-    ed.setDraggingRowId(null);
-    ed.setDropTarget(null);
-  };
-
   return (
     <Slot ref={ref} $dragging={dragging}>
       {/* 落點一：插在兩列之間 → 自成一列、佔滿整寬 */}
       {ed?.draggingRowId && ed.draggingRowId !== row.id && (
-        <RowDrop
-          $active={!!dropAbove}
-          onDragOver={(e) => {
-            e.preventDefault();
-            ed.setDropTarget({ mode: 'row', index: rowIndex });
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            commitDrop({ mode: 'row', index: rowIndex });
-          }}
-        >
+        <RowDrop $active={!!dropAbove}>
           <RowDropLabel>成為新的一列 · 佔滿整寬</RowDropLabel>
         </RowDrop>
       )}
@@ -120,22 +96,25 @@ export function RowView({ item, settings, contentInline, contentBlock, rowIndex 
       )}
 
       <Frame
+        ref={frameRef}
+        data-row-id={row.id}
+        data-row-index={rowIndex}
         $selected={selected}
         style={{ marginBlockStart: item.gapBefore }}
         onPointerDown={() => {
           if (ed?.insertAt !== null) ed?.openInsert(null);
         }}
       >
-        {/* 抓取點：先點選整塊才能拖，不會跟「編輯裡面的內容」搞混 */}
+        {/* 抓取點。用 pointer events 而不是 HTML5 拖曳——
+            HTML5 拖曳在觸控裝置上完全不能用，而老師是用平板的。 */}
         {ed && (
           <Grip
-            draggable
-            onDragStart={() => ed.setDraggingRowId(row.id)}
-            onDragEnd={() => {
-              ed.setDraggingRowId(null);
-              ed.setDropTarget(null);
+            onPointerDown={(e) => {
+              e.preventDefault();
+              ed.startDrag(e.nativeEvent, row.id);
             }}
             aria-label="拖曳搬移"
+            title="拖曳搬移這一列"
           >
             <Icon name="grip" size={16} />
           </Grip>
@@ -144,32 +123,10 @@ export function RowView({ item, settings, contentInline, contentBlock, rowIndex 
         {/* 落點二：貼在元件側邊 → 跟旁邊併成兩欄。刻意跟落點一完全不同形態 */}
         {ed?.draggingRowId && ed.draggingRowId !== row.id && (
           <>
-            <SideDrop
-              $side="start"
-              $active={dropHere === 'left'}
-              onDragOver={(e) => {
-                e.preventDefault();
-                ed.setDropTarget({ mode: 'column', rowId: row.id, side: 'left' });
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                commitDrop({ mode: 'column', rowId: row.id, side: 'left' });
-              }}
-            >
+            <SideDrop $side="start" $active={dropHere === 'left'}>
               併成兩欄
             </SideDrop>
-            <SideDrop
-              $side="end"
-              $active={dropHere === 'right'}
-              onDragOver={(e) => {
-                e.preventDefault();
-                ed.setDropTarget({ mode: 'column', rowId: row.id, side: 'right' });
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                commitDrop({ mode: 'column', rowId: row.id, side: 'right' });
-              }}
-            >
+            <SideDrop $side="end" $active={dropHere === 'right'}>
               併成兩欄
             </SideDrop>
           </>
@@ -286,20 +243,29 @@ const Frame = styled.div<{ $selected: boolean }>`
 
 const Grip = styled.div`
   position: absolute;
-  inset-inline-start: -32px;
+  inset-inline-start: -36px;
   inset-block-start: 0;
-  inline-size: 24px;
-  block-size: 24px;
+  inline-size: 28px;
+  block-size: 28px;
   display: grid;
   place-items: center;
-  color: ${(p) => p.theme.icon.disabled};
+  border-radius: ${(p) => p.theme.radius.field};
+  border: ${(p) => p.theme.border.widthDefault} solid ${(p) => p.theme.border.subtle};
+  background: ${(p) => p.theme.surface.raised};
+  color: ${(p) => p.theme.icon.secondary};
   cursor: grab;
-  opacity: 0;
-  transition: opacity 0.12s;
   writing-mode: horizontal-tb;
+
+  /* 平常很淡但看得見——完全隱形的話沒人知道可以拖 */
+  opacity: 0.35;
+  transition: opacity 0.12s, border-color 0.12s, color 0.12s;
 
   ${Frame}:hover & {
     opacity: 1;
+  }
+  &:hover {
+    border-color: ${(p) => p.theme.border.accent};
+    color: ${(p) => p.theme.icon.accent};
   }
   &:active {
     cursor: grabbing;
