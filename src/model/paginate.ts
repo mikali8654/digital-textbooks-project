@@ -62,6 +62,14 @@ export type PageItem = {
   continuedFromPrev: boolean;
   /** 這一列還沒結束，下一頁繼續——畫面要顯示接續記號。 */
   continuesOnNext: boolean;
+  /**
+   * 被切開的文字在原始內容裡的位置。
+   *
+   * 沒有這個，編輯一段被切成兩頁的課文時就會把另一半弄丟——
+   * 畫面上只看得到前半，存回去就變成只剩前半。
+   * 有了它，編輯器可以把改過的片段接回原文的正確位置。
+   */
+  textSlice?: { start: number; end: number };
 };
 
 export type Page = {
@@ -109,7 +117,7 @@ function splitTextRow(
   available: number,
   o: PageOptions,
   m: Measurer
-): { head: Row; headBlockSize: number; tail: Row } | null {
+): { head: Row; headBlockSize: number; tail: Row; cut: number } | null {
   const inlineSize = columnInlineSizes(row, o)[0];
   const lines = m.textLineSizes(block, inlineSize);
   if (lines.length < 2) return null;
@@ -136,6 +144,7 @@ function splitTextRow(
     headBlockSize: used,
     // 後半保留同一個 row / block id：切開之後仍然是同一個元件
     tail: { ...row, breakBefore: false, columns: [{ ...row.columns[0], blocks: [tailBlock] }] },
+    cut,
   };
 }
 
@@ -153,13 +162,24 @@ export function paginate(rows: Row[], o: PageOptions, m: Measurer): Page[] {
   };
 
   // 佇列可能在切開文字時被塞回剩餘的後半
-  const queue: { row: Row; continued: boolean }[] = rows.map((row) => ({
+  // offset＝這個片段的第一個字在原始內容裡的位置。整列沒被切開時是 0。
+  const queue: { row: Row; continued: boolean; offset: number }[] = rows.map((row) => ({
     row,
     continued: false,
+    offset: 0,
   }));
 
+  /** 被切開的片段要記住它在原文的哪一段，編輯時才接得回去。 */
+  const sliceOf = (row: Row, offset: number, split: boolean) => {
+    if (offset === 0 && !split) return undefined;
+    const text = splittableTextOf(row);
+    if (!text) return undefined;
+    const len = text.spans.map((s) => s.text).join('').length;
+    return { start: offset, end: offset + len };
+  };
+
   while (queue.length > 0) {
-    const { row, continued } = queue.shift()!;
+    const { row, continued, offset } = queue.shift()!;
 
     // 使用者放的換頁線：一定從新的一頁開始，位置不隨內容移動
     if (row.breakBefore && items.length > 0) flush('manual');
@@ -176,6 +196,7 @@ export function paginate(rows: Row[], o: PageOptions, m: Measurer): Page[] {
         blockSize: size,
         continuedFromPrev: continued,
         continuesOnNext: false,
+        textSlice: sliceOf(row, offset, false),
       });
       used += gap + size;
       continue;
@@ -191,10 +212,11 @@ export function paginate(rows: Row[], o: PageOptions, m: Measurer): Page[] {
           blockSize: split.headBlockSize,
           continuedFromPrev: continued,
           continuesOnNext: true,
+          textSlice: { start: offset, end: offset + split.cut },
         });
         used += gap + split.headBlockSize;
         flush('auto');
-        queue.unshift({ row: split.tail, continued: true });
+        queue.unshift({ row: split.tail, continued: true, offset: offset + split.cut });
         continue;
       }
     }
@@ -202,7 +224,7 @@ export function paginate(rows: Row[], o: PageOptions, m: Measurer): Page[] {
     // 放不下也切不開：整列移到下一頁
     if (items.length > 0) {
       flush('auto');
-      queue.unshift({ row, continued });
+      queue.unshift({ row, continued, offset });
       continue;
     }
 
@@ -213,6 +235,7 @@ export function paginate(rows: Row[], o: PageOptions, m: Measurer): Page[] {
       blockSize: size,
       continuedFromPrev: continued,
       continuesOnNext: false,
+      textSlice: sliceOf(row, offset, false),
     });
     used += size;
   }

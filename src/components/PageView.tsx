@@ -10,6 +10,8 @@ type Props = {
   settings: DocSettings;
   /** 整頁縮放倍率。分頁在頁座標裡算完，這裡只負責把它縮到螢幕上。 */
   scale: number;
+  /** 唯讀（預覽模式）時不傳。 */
+  onEditText?: (blockId: string, fragment: string, slice?: { start: number; end: number }) => void;
 };
 
 /**
@@ -18,7 +20,7 @@ type Props = {
  * 頁面本身永遠是固定尺寸，靠 transform 等比縮放——
  * 不是重新排版。所以任何螢幕上看到的都是同一份分頁結果。
  */
-export function PageView({ page, settings, scale }: Props) {
+export function PageView({ page, settings, scale, onEditText }: Props) {
   const size = PAGE_SIZE[settings.aspectRatio];
   const vertical = settings.writingMode === 'vertical';
   const box = contentBox(settings);
@@ -55,6 +57,11 @@ export function PageView({ page, settings, scale }: Props) {
                           maxBlockSize: contentBlock,
                           vertical,
                         }}
+                        onEditText={
+                          onEditText
+                            ? (fragment) => onEditText(b.id, fragment, item.textSlice)
+                            : undefined
+                        }
                       />
                     ))}
                   </Column>

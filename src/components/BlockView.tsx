@@ -1,15 +1,24 @@
 import styled from 'styled-components';
 import { roleStyle, TEXT_SCALE } from '../styles/roles';
 import { blockBox, type SizingContext } from '../model/blockSizing';
+import { EditableText } from './EditableText';
 import type { Block, DocSettings, InlineSpan } from '../model/types';
 
-type Props = { block: Block; settings: DocSettings; sizing: SizingContext };
+type Props = {
+  block: Block;
+  settings: DocSettings;
+  sizing: SizingContext;
+  /** 唯讀（預覽模式）時不給編輯。 */
+  onEditText?: (fragment: string) => void;
+  /** 這個片段在原文裡的位置。被切成兩頁的課文才有。 */
+  slice?: { start: number; end: number };
+};
 
 /**
  * 區塊的呈現。D2 只求「量得準、看得出來」，
  * 完整的元件（選取態、浮動膠囊、Pop-up）在 D4 之後。
  */
-export function BlockView({ block, settings, sizing }: Props) {
+export function BlockView({ block, settings, sizing, onEditText }: Props) {
   const scale = TEXT_SCALE[settings.textScale];
 
   // 非文字區塊：尺寸由 blockSizing 決定，跟量測用的是同一個函式，
@@ -24,6 +33,21 @@ export function BlockView({ block, settings, sizing }: Props) {
   switch (block.type) {
     case 'text': {
       const s = roleStyle(block.role, scale);
+      const plain = block.spans.map((sp) => sp.text).join('');
+      // 行內樣式（重點詞、注音、注釋號）目前是唯讀呈現。
+      // 要能一邊打字一邊保留行內標記，需要真正的行內編輯器，那是 D5。
+      const hasInline = block.spans.some((sp) => sp.keyword || sp.ruby || sp.footnoteRef);
+
+      if (onEditText && !hasInline) {
+        return (
+          <EditableTextStyled
+            style={s}
+            value={plain}
+            onChange={onEditText}
+            placeholder={block.role === 'lessonTitle' ? '輸入標題…' : '輸入內容…'}
+          />
+        );
+      }
       return (
         <Text style={s}>
           {block.spans.map((span, i) => (
@@ -108,6 +132,26 @@ const Text = styled.p`
   rt {
     font-size: 0.4em;
     color: ${(p) => p.theme.text.secondary};
+  }
+`;
+
+const EditableTextStyled = styled(EditableText)`
+  margin: 0;
+  color: ${(p) => p.theme.text.primary};
+  white-space: pre-wrap;
+  word-break: break-word;
+  outline: none;
+
+  &:focus-visible {
+    outline: ${(p) => p.theme.border.widthSelected} solid ${(p) => p.theme.border.accent};
+    outline-offset: 4px;
+    border-radius: 2px;
+  }
+
+  &:empty::before {
+    content: attr(data-placeholder);
+    color: ${(p) => p.theme.text.tertiary};
+    pointer-events: none;
   }
 `;
 

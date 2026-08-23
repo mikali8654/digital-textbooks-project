@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import shehuiMd from '../design/sample-shehui.md?raw';
 import guowenMd from '../design/sample-guowen.md?raw';
@@ -6,7 +6,10 @@ import { applyImport, parseMarkdown } from './model/markdown';
 import { emptyDoc } from './model/document';
 import { PAGE_SIZE } from './model/pageSize';
 import { usePages } from './hooks/usePages';
+import { useEditor } from './hooks/useEditor';
 import { PageView } from './components/PageView';
+import { PageBreak } from './components/PageBreak';
+import { Icon } from './components/Icon';
 import type { Doc, DocSettings } from './model/types';
 
 const SOURCES = {
@@ -14,119 +17,174 @@ const SOURCES = {
   國文: guowenMd,
 } as const;
 
-type Subject = keyof typeof SOURCES;
+type Subject = keyof typeof SOURCES | '空白';
 
-/**
- * D2 的驗證畫面：把真的教材匯入、量測、分頁、畫出來。
- * 編輯功能在 D4 之後，這裡只證明「量得準、分得對、縮放不重排」。
- */
+const load = (key: Subject): Doc =>
+  key === '空白'
+    ? emptyDoc()
+    : applyImport(emptyDoc(), parseMarkdown(SOURCES[key], { autoPageBreak: true }));
+
 export function App() {
   const [subject, setSubject] = useState<Subject>('社會');
-  const [doc, setDoc] = useState<Doc>(() => load('社會'));
+  const [preview, setPreview] = useState(false);
+  const [current, setCurrent] = useState(0);
+
+  const editor = useEditor(load('社會'));
+  const { doc, dispatch, editText, replaceDoc, undo, redo, canUndo, canRedo } = editor;
+  const { pages, stats } = usePages(doc);
 
   const switchTo = (s: Subject) => {
     setSubject(s);
-    setDoc(load(s));
+    replaceDoc(load(s));
+    setCurrent(0);
   };
 
-  const patch = (p: Partial<DocSettings>) =>
-    setDoc((d) => ({ ...d, settings: { ...d.settings, ...p } }));
+  const patch = (p: Partial<DocSettings>) => dispatch({ type: 'setSettings', patch: p });
 
-  const { pages, stats } = usePages(doc);
-
-  // 整頁等比縮放：分頁已經在頁座標裡算完，這裡只負責縮到看得見
+  // 整頁等比縮放
   const stageRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   useEffect(() => {
     const el = stageRef.current;
     if (!el) return;
-
     const recompute = () => {
-      const pageW = PAGE_SIZE[doc.settings.aspectRatio].width;
-      setScale(Math.min(1, (el.clientWidth - 48) / pageW));
+      const page = PAGE_SIZE[doc.settings.aspectRatio];
+      const fitW = (el.clientWidth - 96) / page.width;
+      // 預覽是一次一頁，高度也要塞得下
+      const fitH = preview ? (el.clientHeight - 96) / page.height : Infinity;
+      setScale(Math.max(0.2, Math.min(1, fitW, fitH)));
     };
-
-    // 直接算一次。不能只靠 ResizeObserver——某些環境（例如內嵌的
-    // 瀏覽器面板）不會觸發它，那時倍率會靜靜地停在錯的值。
     recompute();
     window.addEventListener('resize', recompute);
-
-    // RO 是加強，不是唯一來源：容器因為側欄開合而改變寬度時，
-    // window 的 resize 不會觸發，這時才輪到它。
-    const ro =
-      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(recompute);
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(recompute);
     ro?.observe(el);
-
     return () => {
       window.removeEventListener('resize', recompute);
       ro?.disconnect();
     };
-  }, [doc.settings.aspectRatio]);
+  }, [doc.settings.aspectRatio, preview]);
+
+  // 翻頁方向依整本設定：橫排往右翻、直排往左翻
+  const vertical = doc.settings.writingMode === 'vertical';
+  const go = useCallback(
+    (delta: number) => setCurrent((c) => Math.max(0, Math.min(pages.length - 1, c + delta))),
+    [pages.length]
+  );
+
+  useEffect(() => {
+    if (!preview) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') return setPreview(false);
+      // 直排往左翻：左鍵是「下一頁」
+      if (e.key === 'ArrowRight') go(vertical ? -1 : 1);
+      if (e.key === 'ArrowLeft') go(vertical ? 1 : -1);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [preview, vertical, go]);
+
+  useEffect(() => {
+    if (current > pages.length - 1) setCurrent(Math.max(0, pages.length - 1));
+  }, [pages.length, current]);
 
   const total = stats.hits + stats.misses;
+  const page = pages[Math.min(current, pages.length - 1)];
 
   return (
     <Layout>
       <Bar>
         <Group>
-          {(Object.keys(SOURCES) as Subject[]).map((s) => (
+          {(['社會', '國文', '空白'] as Subject[]).map((s) => (
             <Toggle key={s} $on={s === subject} onClick={() => switchTo(s)}>
               {s}
             </Toggle>
           ))}
         </Group>
+
         <Group>
-          <Toggle
-            $on={doc.settings.writingMode === 'horizontal'}
-            onClick={() => patch({ writingMode: 'horizontal' })}
-          >
+          <Round onClick={undo} disabled={!canUndo} title="復原">
+            <Icon name="undo" size={20} label="復原" />
+          </Round>
+          <Round onClick={redo} disabled={!canRedo} title="重做">
+            <Icon name="redo" size={20} label="重做" />
+          </Round>
+        </Group>
+
+        <Group>
+          <Toggle $on={!vertical} onClick={() => patch({ writingMode: 'horizontal' })}>
             橫排
           </Toggle>
-          <Toggle
-            $on={doc.settings.writingMode === 'vertical'}
-            onClick={() => patch({ writingMode: 'vertical' })}
-          >
+          <Toggle $on={vertical} onClick={() => patch({ writingMode: 'vertical' })}>
             直排
           </Toggle>
         </Group>
         <Group>
           {(['4:3', '16:9'] as const).map((r) => (
-            <Toggle
-              key={r}
-              $on={doc.settings.aspectRatio === r}
-              onClick={() => patch({ aspectRatio: r })}
-            >
+            <Toggle key={r} $on={doc.settings.aspectRatio === r} onClick={() => patch({ aspectRatio: r })}>
               {r}
             </Toggle>
           ))}
         </Group>
         <Group>
           {(['sm', 'md', 'lg'] as const).map((t) => (
-            <Toggle
-              key={t}
-              $on={doc.settings.textScale === t}
-              onClick={() => patch({ textScale: t })}
-            >
+            <Toggle key={t} $on={doc.settings.textScale === t} onClick={() => patch({ textScale: t })}>
               字級 {t}
             </Toggle>
           ))}
         </Group>
+
         <Stats>
-          {pages.length} 頁 · 量測快取命中 {total ? Math.round((stats.hits / total) * 100) : 0}%
+          {pages.length} 頁 · 快取命中 {total ? Math.round((stats.hits / total) * 100) : 0}%
         </Stats>
+
+        <Preview $on={preview} onClick={() => setPreview((p) => !p)}>
+          {preview ? '離開預覽' : '預覽'}
+          <Icon name="eye" size={20} />
+        </Preview>
       </Bar>
 
-      <Stage ref={stageRef}>
-        {pages.map((page) => (
-          <PageView key={page.index} page={page} settings={doc.settings} scale={scale} />
-        ))}
-      </Stage>
+      {preview ? (
+        <PreviewStage ref={stageRef}>
+          <Flip
+            onClick={() => go(vertical ? 1 : -1)}
+            disabled={vertical ? current >= pages.length - 1 : current === 0}
+            title={vertical ? '下一頁' : '上一頁'}
+          >
+            <Icon name="chevron-left" size={24} />
+          </Flip>
+
+          {page && <PageView page={page} settings={doc.settings} scale={scale} />}
+
+          <Flip
+            onClick={() => go(vertical ? -1 : 1)}
+            disabled={vertical ? current === 0 : current >= pages.length - 1}
+            title={vertical ? '上一頁' : '下一頁'}
+          >
+            <Icon name="chevron-right" size={24} />
+          </Flip>
+
+          <Counter>
+            第 {current + 1} / {pages.length} 頁 ·{' '}
+            {vertical ? '直排往左翻' : '橫排往右翻'}
+          </Counter>
+        </PreviewStage>
+      ) : (
+        <Stage ref={stageRef}>
+          {pages.map((p, i) => (
+            <PageSlot key={p.index}>
+              {i > 0 && <PageBreak startedBy={p.startedBy} />}
+              <PageView
+                page={p}
+                settings={doc.settings}
+                scale={scale}
+                onEditText={editText}
+              />
+            </PageSlot>
+          ))}
+        </Stage>
+      )}
     </Layout>
   );
-}
-
-function load(key: Subject): Doc {
-  return applyImport(emptyDoc(), parseMarkdown(SOURCES[key], { autoPageBreak: true }));
 }
 
 const Layout = styled.div`
@@ -148,6 +206,7 @@ const Bar = styled.header`
 const Group = styled.div`
   display: flex;
   gap: ${(p) => p.theme.space.gapXs};
+  align-items: center;
 `;
 
 const Toggle = styled.button<{ $on: boolean }>`
@@ -162,10 +221,47 @@ const Toggle = styled.button<{ $on: boolean }>`
   background: ${(p) => (p.$on ? p.theme.brand.primaryTint : p.theme.surface.raised)};
   color: ${(p) => (p.$on ? p.theme.text.accent : p.theme.text.secondary)};
 
-  &:hover {
+  &:hover:not(:disabled) {
     border-color: ${(p) => p.theme.border.accent};
     background: ${(p) => p.theme.brand.primaryTintSubtle};
   }
+`;
+
+const Round = styled.button`
+  width: ${(p) => p.theme.control.heightSm};
+  height: ${(p) => p.theme.control.heightSm};
+  display: grid;
+  place-items: center;
+  border-radius: ${(p) => p.theme.radius.control};
+  border: ${(p) => p.theme.border.widthDefault} solid ${(p) => p.theme.border.subtle};
+  background: ${(p) => p.theme.surface.raised};
+  color: ${(p) => p.theme.icon.default};
+  cursor: pointer;
+
+  &:disabled {
+    color: ${(p) => p.theme.icon.disabled};
+    border-color: ${(p) => p.theme.action.disabledBorder};
+    cursor: default;
+  }
+  &:hover:not(:disabled) {
+    border-color: ${(p) => p.theme.border.accent};
+    background: ${(p) => p.theme.brand.primaryTintSubtle};
+  }
+`;
+
+const Preview = styled.button<{ $on: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: ${(p) => p.theme.space.gapXs};
+  height: ${(p) => p.theme.control.heightSm};
+  padding: 0 ${(p) => p.theme.space.insetSm};
+  border-radius: ${(p) => p.theme.radius.control};
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--ds-typography-body-sm-size);
+  background: ${(p) => (p.$on ? p.theme.brand.primary : p.theme.action.primaryBg)};
+  color: ${(p) => p.theme.action.primaryText};
 `;
 
 const Stats = styled.div`
@@ -178,10 +274,56 @@ const Stats = styled.div`
 const Stage = styled.main`
   flex: 1;
   overflow: auto;
-  padding: ${(p) => p.theme.space.insetLg};
+  padding: ${(p) => p.theme.space.insetXl};
   background: ${(p) => p.theme.surface.muted};
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 48px;
+  gap: 32px;
+`;
+
+const PageSlot = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+`;
+
+const PreviewStage = styled.main`
+  flex: 1;
+  overflow: hidden;
+  padding: ${(p) => p.theme.space.insetXl};
+  background: ${(p) => p.theme.surface.inverse};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: ${(p) => p.theme.space.insetLg};
+  position: relative;
+`;
+
+const Flip = styled.button`
+  flex: none;
+  width: ${(p) => p.theme.control.heightMd};
+  height: ${(p) => p.theme.control.heightMd};
+  display: grid;
+  place-items: center;
+  border-radius: ${(p) => p.theme.radius.control};
+  border: none;
+  background: ${(p) => p.theme.action.inverseBg};
+  color: ${(p) => p.theme.icon.default};
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.25;
+    cursor: default;
+  }
+`;
+
+const Counter = styled.div`
+  position: absolute;
+  inset-block-end: 16px;
+  color: ${(p) => p.theme.text.onInverse};
+  font-size: var(--ds-typography-body-sm-size);
+  font-variant-numeric: tabular-nums;
 `;
