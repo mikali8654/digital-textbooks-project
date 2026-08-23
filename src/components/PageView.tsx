@@ -1,5 +1,5 @@
 import styled from 'styled-components';
-import { PAGE_PADDING, PAGE_SIZE } from '../model/pageSize';
+import { COLUMN_GAP, PAGE_PADDING, PAGE_SIZE, contentBox } from '../model/pageSize';
 import { GAP } from '../model/spacing';
 import { BlockView } from './BlockView';
 import type { Page } from '../model/paginate';
@@ -20,6 +20,12 @@ type Props = {
  */
 export function PageView({ page, settings, scale }: Props) {
   const size = PAGE_SIZE[settings.aspectRatio];
+  const vertical = settings.writingMode === 'vertical';
+  const box = contentBox(settings);
+  // 邏輯軸：橫排的 inline 是寬、直排的 inline 是高
+  const contentInline = vertical ? box.height : box.width;
+  const contentBlock = vertical ? box.width : box.height;
+
   return (
     <Frame style={{ width: size.width * scale, height: size.height * scale }}>
       <Sheet
@@ -34,13 +40,26 @@ export function PageView({ page, settings, scale }: Props) {
           <Row key={item.row.id} style={{ marginBlockStart: item.gapBefore }}>
             {item.continuedFromPrev && <Continues>接上頁</Continues>}
             <Columns>
-              {item.row.columns.map((col) => (
-                <Column key={col.id} style={{ flexBasis: `${col.widthPct}%` }}>
-                  {col.blocks.map((b) => (
-                    <BlockView key={b.id} block={b} settings={settings} />
-                  ))}
-                </Column>
-              ))}
+              {item.row.columns.map((col) => {
+                const gaps = COLUMN_GAP * (item.row.columns.length - 1);
+                const colInline = ((contentInline - gaps) * col.widthPct) / 100;
+                return (
+                  <Column key={col.id} style={{ flexBasis: `${col.widthPct}%` }}>
+                    {col.blocks.map((b) => (
+                      <BlockView
+                        key={b.id}
+                        block={b}
+                        settings={settings}
+                        sizing={{
+                          inlineSize: colInline,
+                          maxBlockSize: contentBlock,
+                          vertical,
+                        }}
+                      />
+                    ))}
+                  </Column>
+                );
+              })}
             </Columns>
             {item.continuesOnNext && <Continues $end>接下頁</Continues>}
           </Row>

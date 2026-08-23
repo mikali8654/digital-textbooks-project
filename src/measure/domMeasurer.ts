@@ -1,3 +1,5 @@
+import { blockBox } from '../model/blockSizing';
+import { GAP } from '../model/spacing';
 import type { Measurer } from '../model/paginate';
 import type { Block, DocSettings, TextBlock } from '../model/types';
 import { TEXT_SCALE, roleStyle } from '../styles/roles';
@@ -10,20 +12,6 @@ import { TEXT_SCALE, roleStyle } from '../styles/roles';
  *
  * 容器完全套用與真實頁面相同的 token，所以量到的就是畫出來的。
  */
-
-/** 非文字區塊的估高。真實高度在 D4 由元件自己回報，這裡先給合理的預設。 */
-const FALLBACK_BLOCK_SIZE: Record<string, number> = {
-  image: 240,
-  video: 240,
-  audio: 64,
-  shape: 120,
-  table: 180,
-  web: 112,
-  dialogue: 88,
-  reference: 40,
-  module: 200,
-  question: 200,
-};
 
 export type DomMeasurerOptions = {
   settings: Pick<DocSettings, 'writingMode' | 'textScale'>;
@@ -85,8 +73,22 @@ export function createDomMeasurer(opts: DomMeasurerOptions): DomMeasurer {
         const el = layoutText(block, inlineSize);
         return Math.min(blockAxis(el.getBoundingClientRect()), maxBlockSize);
       }
-      // 盒狀模組比一頁還大時等比縮到放得進去
-      return Math.min(FALLBACK_BLOCK_SIZE[block.type] ?? 120, maxBlockSize);
+      // 非文字區塊走共用的尺寸規則——渲染端用的是同一個函式，
+      // 所以量到的一定等於畫出來的。
+      const box = blockBox(block, { inlineSize, maxBlockSize, vertical });
+      if (!box) return 0;
+
+      // 圖說是常駐顯示的，會佔掉版面，量測必須含進去。
+      // 間距用「附屬」那一階——圖與它的圖說是同一件事。
+      if (block.type === 'image' && block.caption) {
+        const caption = layoutText(
+          { ...block, type: 'text', role: 'caption', spans: [{ text: block.caption }] },
+          inlineSize
+        );
+        const captionSize = blockAxis(caption.getBoundingClientRect());
+        return Math.min(box.blockSize + GAP.attached + captionSize, maxBlockSize);
+      }
+      return box.blockSize;
     },
 
     /**

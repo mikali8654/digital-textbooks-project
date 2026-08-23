@@ -1,15 +1,25 @@
 import styled from 'styled-components';
 import { roleStyle, TEXT_SCALE } from '../styles/roles';
+import { blockBox, type SizingContext } from '../model/blockSizing';
 import type { Block, DocSettings, InlineSpan } from '../model/types';
 
-type Props = { block: Block; settings: DocSettings };
+type Props = { block: Block; settings: DocSettings; sizing: SizingContext };
 
 /**
  * 區塊的呈現。D2 只求「量得準、看得出來」，
  * 完整的元件（選取態、浮動膠囊、Pop-up）在 D4 之後。
  */
-export function BlockView({ block, settings }: Props) {
+export function BlockView({ block, settings, sizing }: Props) {
   const scale = TEXT_SCALE[settings.textScale];
+
+  // 非文字區塊：尺寸由 blockSizing 決定，跟量測用的是同一個函式，
+  // 所以畫出來的一定等於量到的，不會撐破頁面。
+  const box = blockBox(block, sizing);
+  const boxStyle = box
+    ? sizing.vertical
+      ? { width: box.blockSize, height: box.inlineSize }
+      : { width: box.inlineSize, height: box.blockSize }
+    : undefined;
 
   switch (block.type) {
     case 'text': {
@@ -25,7 +35,7 @@ export function BlockView({ block, settings }: Props) {
     case 'image':
       return (
         <figure style={{ margin: 0 }}>
-          <Placeholder $ratio={block.aspectRatio}>{block.alt || '圖片'}</Placeholder>
+          <Placeholder style={boxStyle}>{block.alt || '圖片'}</Placeholder>
           {block.caption && <Caption>{block.caption}</Caption>}
         </figure>
       );
@@ -112,8 +122,7 @@ const Sup = styled.sup`
   margin-inline-start: 2px;
 `;
 
-const Placeholder = styled.div<{ $ratio: number }>`
-  aspect-ratio: ${(p) => p.$ratio};
+const Placeholder = styled.div`
   background: ${(p) => p.theme.surface.media};
   border-radius: ${(p) => p.theme.radius.field};
   display: grid;
