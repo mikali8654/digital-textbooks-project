@@ -9,6 +9,7 @@ import { usePages } from './hooks/usePages';
 import { useEditor } from './hooks/useEditor';
 import { PageView } from './components/PageView';
 import { PageBreak } from './components/PageBreak';
+import { EditorProvider } from './editor/EditorContext';
 import { Icon } from './components/Icon';
 import type { Doc, DocSettings } from './model/types';
 
@@ -30,7 +31,11 @@ export function App() {
   const [current, setCurrent] = useState(0);
 
   const editor = useEditor(load('社會'));
-  const { doc, dispatch, editText, replaceDoc, undo, redo, canUndo, canRedo } = editor;
+  const { doc, dispatch, replaceDoc, undo, redo, canUndo, canRedo } = editor;
+  const rowIndexOf = useCallback(
+    (rowId: string) => doc.rows.findIndex((r) => r.id === rowId),
+    [doc.rows]
+  );
   const { pages, stats } = usePages(doc);
 
   const switchTo = (s: Subject) => {
@@ -169,19 +174,21 @@ export function App() {
           </Counter>
         </PreviewStage>
       ) : (
-        <Stage ref={stageRef}>
-          {pages.map((p, i) => (
-            <PageSlot key={p.index}>
-              {i > 0 && <PageBreak startedBy={p.startedBy} />}
-              <PageView
-                page={p}
-                settings={doc.settings}
-                scale={scale}
-                onEditText={editText}
-              />
-            </PageSlot>
-          ))}
-        </Stage>
+        <EditorProvider editor={editor}>
+          <Stage ref={stageRef}>
+            {pages.map((p, i) => (
+              <PageSlot key={p.index}>
+                {i > 0 && <PageBreak startedBy={p.startedBy} />}
+                <PageView
+                  page={p}
+                  settings={doc.settings}
+                  scale={scale}
+                  rowIndexOf={rowIndexOf}
+                />
+              </PageSlot>
+            ))}
+          </Stage>
+        </EditorProvider>
       )}
     </Layout>
   );

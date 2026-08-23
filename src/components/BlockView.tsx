@@ -12,13 +12,15 @@ type Props = {
   onEditText?: (fragment: string) => void;
   /** 這個片段在原文裡的位置。被切成兩頁的課文才有。 */
   slice?: { start: number; end: number };
+  /** 點下去選中這個元件。唯讀時不傳。 */
+  onSelect?: () => void;
 };
 
 /**
  * 區塊的呈現。D2 只求「量得準、看得出來」，
  * 完整的元件（選取態、浮動膠囊、Pop-up）在 D4 之後。
  */
-export function BlockView({ block, settings, sizing, onEditText }: Props) {
+export function BlockView({ block, settings, sizing, onEditText, onSelect }: Props) {
   const scale = TEXT_SCALE[settings.textScale];
 
   // 非文字區塊：尺寸由 blockSizing 決定，跟量測用的是同一個函式，
@@ -43,6 +45,7 @@ export function BlockView({ block, settings, sizing, onEditText }: Props) {
           <EditableTextStyled
             style={s}
             value={plain}
+            onFocus={onSelect}
             onChange={onEditText}
             placeholder={block.role === 'lessonTitle' ? '輸入標題…' : '輸入內容…'}
           />
@@ -58,7 +61,7 @@ export function BlockView({ block, settings, sizing, onEditText }: Props) {
     }
     case 'image':
       return (
-        <figure style={{ margin: 0 }}>
+        <figure style={{ margin: 0 }} onPointerDown={onSelect}>
           <Placeholder style={boxStyle}>{block.alt || '圖片'}</Placeholder>
           {block.caption && <Caption>{block.caption}</Caption>}
         </figure>

@@ -6,6 +6,7 @@ type Props = {
   className?: string;
   style?: React.CSSProperties;
   placeholder?: string;
+  onFocus?: () => void;
 };
 
 /**
@@ -16,7 +17,7 @@ type Props = {
  * 只有在沒有焦點、而且值真的不一樣時才同步——那是外部改動
  * （復原、匯入、換教材）造成的。
  */
-export function EditableText({ value, onChange, className, style, placeholder }: Props) {
+export function EditableText({ value, onChange, className, style, placeholder, onFocus }: Props) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -36,6 +37,7 @@ export function EditableText({ value, onChange, className, style, placeholder }:
       role="textbox"
       aria-multiline="true"
       data-placeholder={placeholder}
+      onFocus={onFocus}
       onInput={(e) => onChange(e.currentTarget.textContent ?? '')}
       onPaste={(e) => {
         // 貼上一律轉純文字：保留段落，丟掉來源的字體大小顏色。
