@@ -132,7 +132,7 @@ export function RowView({ item, settings, contentInline, contentBlock, rowIndex 
 
         {item.continuedFromPrev && <Continues>接上頁</Continues>}
 
-        <Columns>
+        <Columns data-columns>
           {row.columns.map((col, ci) => {
             const gaps = COLUMN_GAP * (row.columns.length - 1);
             const colInline = ((contentInline - gaps) * col.widthPct) / 100;
@@ -173,7 +173,7 @@ export function RowView({ item, settings, contentInline, contentBlock, rowIndex 
                     rowId={row.id}
                     widths={row.columns.map((c) => c.widthPct)}
                     index={ci}
-                    totalInline={contentInline}
+                    vertical={vertical}
                     onChange={(widths) =>
                       ed.dispatch({ type: 'setColumnWidths', rowId: row.id, widths })
                     }
@@ -194,36 +194,62 @@ export function RowView({ item, settings, contentInline, contentBlock, rowIndex 
 function Divider({
   widths,
   index,
-  totalInline,
+  vertical,
   onChange,
 }: {
   rowId: string;
   widths: number[];
   index: number;
-  totalInline: number;
+  vertical: boolean;
   onChange: (widths: number[]) => void;
 }) {
-  const start = useRef<{ pos: number; a: number; b: number } | null>(null);
+  const start = useRef<{ pos: number; a: number; b: number; span: number } | null>(null);
+
+  /**
+   * 用容器的「實際渲染寬度」換算百分比，不用頁座標。
+   *
+   * 頁面是 transform: scale() 縮放過的，指標事件給的是視窗像素。
+   * 拿視窗像素去除以頁座標的寬度，比例會差一個縮放倍率——
+   * 縮到 62% 時，拖 100px 只會動到該動的六成。
+   * 兩邊都用視窗像素就自動對齊，不必把倍率傳進來。
+   */
+  const axis = (e: React.PointerEvent) => (vertical ? e.clientY : e.clientX);
 
   return (
     <Handle
       role="separator"
       aria-label="調整欄寬"
+      $vertical={vertical}
       onPointerDown={(e) => {
-        e.currentTarget.setPointerCapture(e.pointerId);
-        start.current = { pos: e.clientX, a: widths[index], b: widths[index + 1] };
+        const columns = e.currentTarget.closest<HTMLElement>('[data-columns]');
+        const box = columns?.getBoundingClientRect();
+        const span = (vertical ? box?.height : box?.width) ?? 0;
+        if (span <= 0) return;
+
+        start.current = { pos: axis(e), a: widths[index], b: widths[index + 1], span };
+        // 包在 try 裡：它會對無效的 pointerId 丟例外，
+        // 一丟就把上面的初始化整個中斷，拖曳靜靜地失效。
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {
+          /* 沒有捕捉也能拖 */
+        }
       }}
       onPointerMove={(e) => {
-        if (!start.current) return;
-        const deltaPct = ((e.clientX - start.current.pos) / totalInline) * 100;
-        const a = Math.max(20, Math.min(80, start.current.a + deltaPct));
-        const b = start.current.a + start.current.b - a;
+        const s = start.current;
+        if (!s) return;
+        const deltaPct = ((axis(e) - s.pos) / s.span) * 100;
+        // 兩欄各自至少留兩成，否則會被拖到看不見
+        const a = Math.max(20, Math.min(80, s.a + deltaPct));
         const next = widths.slice();
         next[index] = a;
-        next[index + 1] = b;
+        next[index + 1] = s.a + s.b - a;
         onChange(next);
       }}
       onPointerUp={() => {
+        start.current = null;
+      }}
+      onPointerCancel={() => {
         start.current = null;
       }}
     >
@@ -372,15 +398,17 @@ const ColumnWrap = styled.div`
   min-inline-size: 0;
 `;
 
-const Handle = styled.div`
+const Handle = styled.div<{ $vertical: boolean }>`
   position: absolute;
   inset-block: 0;
   inset-inline-end: -${COLUMN_GAP / 2}px;
-  inline-size: 12px;
-  cursor: col-resize;
+  inline-size: 16px;
+  /* 直排時欄是上下排的，拖曳軸也要跟著轉 */
+  cursor: ${(p) => (p.$vertical ? 'row-resize' : 'col-resize')};
   display: grid;
   place-items: center;
   writing-mode: horizontal-tb;
+  touch-action: none;
   opacity: 0;
   transition: opacity 0.12s;
 
