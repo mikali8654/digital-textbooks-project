@@ -62,19 +62,17 @@ export function RowView({ item, settings, contentInline, contentBlock, rowIndex 
     ed?.dropTarget?.mode === 'column' && ed.dropTarget.rowId === row.id
       ? ed.dropTarget.side
       : null;
-  const dropAbove =
-    ed?.dropTarget?.mode === 'row' && ed.dropTarget.index === rowIndex;
+  const dropAbove = ed?.dropTarget?.mode === 'row' && ed.dropTarget.index === rowIndex;
+  const dropBelow = ed?.dropTarget?.mode === 'row' && ed.dropTarget.index === rowIndex + 1;
 
   const dragging = ed?.draggingRowId === row.id;
 
   return (
     <Slot ref={ref} $dragging={dragging}>
-      {/* 落點一：插在兩列之間 → 自成一列、佔滿整寬 */}
-      {ed?.draggingRowId && ed.draggingRowId !== row.id && (
-        <RowDrop $active={!!dropAbove}>
-          <RowDropLabel>成為新的一列 · 佔滿整寬</RowDropLabel>
-        </RowDrop>
-      )}
+      {/* 落點一：插進順序裡。用絕對定位的細線，不佔版面高度——
+          佔高度的話一開始拖曳，整頁的列都會跳動。 */}
+      {dropAbove && <DropLine $where="start" />}
+      {dropBelow && <DropLine $where="end" />}
 
       {/* 插入點：安靜不常駐，滑過才浮現 */}
       {ed && !ed.draggingRowId && (
@@ -272,22 +270,33 @@ const Grip = styled.div`
   }
 `;
 
-/** 落點一：整寬的橫桿。語意＝插進順序裡。 */
-const RowDrop = styled.div<{ $active: boolean }>`
-  block-size: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/**
+ * 落點一：插進順序裡。
+ * 一條貼在列上下緣的細線，兩端各一個圓點——語意是「落在這個縫隙」。
+ * 絕對定位，不佔版面高度。
+ */
+const DropLine = styled.div<{ $where: 'start' | 'end' }>`
+  position: absolute;
+  inset-inline: 0;
+  ${(p) => (p.$where === 'start' ? 'inset-block-start: -3px;' : 'inset-block-end: -3px;')}
+  block-size: 3px;
+  z-index: 12;
+  border-radius: 999px;
+  background: ${(p) => p.theme.brand.primary};
   writing-mode: horizontal-tb;
-  border-radius: ${(p) => p.theme.radius.control};
-  background: ${(p) => (p.$active ? p.theme.brand.primaryTintSubtle : 'transparent')};
-  border-block-start: ${(p) => (p.$active ? '4px solid' : '2px dashed')}
-    ${(p) => (p.$active ? p.theme.border.accent : p.theme.border.default)};
-`;
 
-const RowDropLabel = styled.span`
-  font-size: var(--ds-typography-label-size);
-  color: ${(p) => p.theme.text.accent};
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    inset-block-start: -3px;
+    inline-size: 9px;
+    block-size: 9px;
+    border-radius: 999px;
+    background: ${(p) => p.theme.brand.primary};
+  }
+  &::before { inset-inline-start: -4px; }
+  &::after { inset-inline-end: -4px; }
 `;
 
 /** 落點二：貼在側邊的直向落區。跟落點一視覺刻意完全不同。 */
@@ -295,7 +304,7 @@ const SideDrop = styled.div<{ $side: 'start' | 'end'; $active: boolean }>`
   position: absolute;
   inset-block: 0;
   ${(p) => (p.$side === 'start' ? 'inset-inline-start: 0;' : 'inset-inline-end: 0;')}
-  inline-size: 22%;
+  inline-size: 72px;
   z-index: 10;
   display: grid;
   place-items: center;
