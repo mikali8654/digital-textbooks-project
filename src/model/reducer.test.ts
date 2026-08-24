@@ -125,3 +125,50 @@ describe('文字', () => {
     expect(textOf(block)).toBe('星星的世界');
   });
 });
+
+describe('併欄之後要拆得回來', () => {
+  it('把一欄拖出去會變成獨立的一列', () => {
+    const a = makeRow([makeText('A')]);
+    const b = makeRow([makeText('B')]);
+    // 先併成兩欄
+    let doc = applyAction(docWith(a, b), {
+      type: 'moveRow', rowId: b.id, target: { mode: 'column', rowId: a.id, side: 'right' },
+    });
+    expect(doc.rows).toHaveLength(1);
+    expect(doc.rows[0].columns).toHaveLength(2);
+
+    // 再把第二欄拆出來放到最前面
+    const rowId = doc.rows[0].id;
+    const colId = doc.rows[0].columns[1].id;
+    doc = applyAction(doc, {
+      type: 'moveColumn', rowId, columnId: colId, target: { mode: 'row', index: 0 },
+    });
+    expect(doc.rows).toHaveLength(2);
+    expect(doc.rows.every((r) => r.columns.length === 1)).toBe(true);
+    expect(doc.rows[0].columns[0].widthPct).toBe(100);
+  });
+
+  it('剩下的那一欄會回復成滿寬', () => {
+    const a = makeRow([makeText('A')]);
+    const b = makeRow([makeText('B')]);
+    let doc = applyAction(docWith(a, b), {
+      type: 'moveRow', rowId: b.id, target: { mode: 'column', rowId: a.id, side: 'right' },
+    });
+    const rowId = doc.rows[0].id;
+    const colId = doc.rows[0].columns[0].id;
+    doc = applyAction(doc, {
+      type: 'moveColumn', rowId, columnId: colId, target: { mode: 'row', index: 1 },
+    });
+    const widths = doc.rows.flatMap((r) => r.columns.map((c) => c.widthPct));
+    expect(widths).toEqual([100, 100]);
+  });
+
+  it('單欄的列不吃 moveColumn——那是 moveRow 的工作', () => {
+    const a = makeRow([makeText('A')]);
+    const doc = docWith(a);
+    const next = applyAction(doc, {
+      type: 'moveColumn', rowId: a.id, columnId: a.columns[0].id, target: { mode: 'row', index: 0 },
+    });
+    expect(next).toBe(doc);
+  });
+});

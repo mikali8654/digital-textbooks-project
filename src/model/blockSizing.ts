@@ -10,11 +10,16 @@ import type { Block } from './types';
  */
 
 /**
- * 圖片預設吃滿欄寬，只有在「照比例算出來會超出一頁」時才等比縮小。
+ * 圖片預設佔一頁的多少。
  *
- * 不設美觀上限——那會讓圖片比文字窄，左右邊界對不齊，破壞版面的系統性。
- * 老師覺得太大就自己縮（ImageBlock.widthPct），那是他的決定，不是預設值。
+ * 曾經讓圖片吃滿欄寬，理由是要跟文字對齊同一組邊界。但實際編起來
+ * 才發現代價太大：4:3 的頁面下，一張 3:2 的圖吃滿欄寬就是 597px，
+ * 佔掉整頁的 93%——插一張圖就等於用掉一頁，老師沒辦法圖文混排。
+ *
+ * 所以改成「先照比例算，超過這個比例就縮」。老師要放大就自己調
+ * （ImageBlock.widthPct），那是他的決定；預設值要讓他有空間繼續編。
  */
+const MAX_SHARE_OF_PAGE = 0.45;
 
 /** 沒有內在比例的區塊，就用固定的 block 尺寸。 */
 const FIXED: Record<string, number> = {
@@ -42,11 +47,17 @@ export type SizingContext = {
  * 橫排：寬度吃滿欄寬，高度由比例決定。
  * 直排：高度吃滿欄高，寬度由比例決定——block 軸是水平的。
  */
-export function aspectBlockSize(aspectRatio: number, ctx: SizingContext): number {
+export function aspectBlockSize(
+  aspectRatio: number,
+  ctx: SizingContext,
+  /** 老師自己設過尺寸時，上限放寬到整頁——他的決定要算數。 */
+  explicitSize = false
+): number {
   const natural = ctx.vertical
     ? ctx.inlineSize * aspectRatio
     : ctx.inlineSize / aspectRatio;
-  return Math.min(natural, ctx.maxBlockSize);
+  const cap = explicitSize ? ctx.maxBlockSize : ctx.maxBlockSize * MAX_SHARE_OF_PAGE;
+  return Math.min(natural, cap);
 }
 
 /**
@@ -61,11 +72,12 @@ export function blockBox(
 
   if (block.type === 'image' || block.type === 'video') {
     const ratio = block.type === 'image' ? block.aspectRatio : 16 / 9;
-    // 老師縮過的圖用他設的比例，沒縮過就吃滿欄寬
+    // 老師調過尺寸就照他的，沒調過就用預設上限
+    const explicit = block.type === 'image' && block.widthPct != null;
     const pct = (block.type === 'image' ? block.widthPct : undefined) ?? 100;
     const wanted = (ctx.inlineSize * pct) / 100;
 
-    const blockSize = aspectBlockSize(ratio, { ...ctx, inlineSize: wanted });
+    const blockSize = aspectBlockSize(ratio, { ...ctx, inlineSize: wanted }, explicit);
     // 若因為超出一頁而被縮小，inline 軸要跟著縮，否則會變形
     const inlineSize = ctx.vertical ? blockSize / ratio : blockSize * ratio;
     return {

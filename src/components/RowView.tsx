@@ -109,7 +109,7 @@ export function RowView({ item, settings, contentInline, contentBlock, rowIndex 
           <Grip
             onPointerDown={(e) => {
               e.preventDefault();
-              ed.startDrag(e.nativeEvent, row.id);
+              ed.startDrag(e.nativeEvent, { rowId: row.id });
             }}
             aria-label="拖曳搬移"
             title="拖曳搬移這一列"
@@ -137,7 +137,25 @@ export function RowView({ item, settings, contentInline, contentBlock, rowIndex 
             const gaps = COLUMN_GAP * (row.columns.length - 1);
             const colInline = ((contentInline - gaps) * col.widthPct) / 100;
             return (
-              <ColumnWrap key={col.id} style={{ flexBasis: `${col.widthPct}%` }}>
+              <ColumnWrap
+                key={col.id}
+                data-col-id={col.id}
+                style={{ flexBasis: `${col.widthPct}%` }}
+              >
+                {/* 多欄時每一欄各有握把，否則併起來就拆不開了 */}
+                {ed && row.columns.length > 1 && (
+                  <ColGrip
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      ed.startDrag(e.nativeEvent, { rowId: row.id, columnId: col.id });
+                    }}
+                    aria-label="拖曳搬移這一欄"
+                    title="拖曳搬移這一欄。往上或往下放可以拆回獨立的一列"
+                  >
+                    <Icon name="grip" size={16} />
+                  </ColGrip>
+                )}
                 {col.blocks.map((b) => (
                   <BlockView
                     key={b.id}
@@ -321,6 +339,32 @@ const Columns = styled.div`
   display: flex;
   gap: ${COLUMN_GAP}px;
   align-items: flex-start;
+`;
+
+const ColGrip = styled.div`
+  position: absolute;
+  inset-block-start: -10px;
+  inset-inline-start: -10px;
+  z-index: 11;
+  inline-size: 24px;
+  block-size: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: ${(p) => p.theme.radius.field};
+  border: ${(p) => p.theme.border.widthDefault} solid ${(p) => p.theme.border.subtle};
+  background: ${(p) => p.theme.surface.raised};
+  color: ${(p) => p.theme.icon.secondary};
+  cursor: grab;
+  writing-mode: horizontal-tb;
+  opacity: 0.35;
+  transition: opacity 0.12s, border-color 0.12s, color 0.12s;
+
+  &:hover {
+    opacity: 1;
+    border-color: ${(p) => p.theme.border.accent};
+    color: ${(p) => p.theme.icon.accent};
+  }
+  &:active { cursor: grabbing; }
 `;
 
 const ColumnWrap = styled.div`

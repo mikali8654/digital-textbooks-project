@@ -25,8 +25,11 @@ const SIDE_ZONE_PX = 72;
 /** 超過這個距離才算拖曳，否則只是點一下握把。 */
 const DRAG_THRESHOLD_PX = 4;
 
+/** 拖曳的對象：整列，或多欄列裡的其中一欄。 */
+export type DragSubject = { rowId: string; columnId?: string };
+
 export type DragApi = {
-  startDrag: (e: PointerEvent, rowId: string) => void;
+  startDrag: (e: PointerEvent, subject: DragSubject) => void;
 };
 
 /** 跟著游標的殘影。讓人知道「我正握著這一塊」。 */
@@ -60,15 +63,19 @@ function makeGhost(source: HTMLElement): HTMLElement {
 export function useRowDrag(
   setDraggingRowId: (id: string | null) => void,
   setDropTarget: (t: DropTarget | null) => void,
-  commit: (rowId: string, target: DropTarget) => void
+  commit: (subject: DragSubject, target: DropTarget) => void
 ): DragApi {
   const target = useRef<DropTarget | null>(null);
-  const dragging = useRef<string | null>(null);
+  const dragging = useRef<DragSubject | null>(null);
 
   const startDrag = useCallback(
-    (e: PointerEvent, rowId: string) => {
+    (e: PointerEvent, subject: DragSubject) => {
       const handle = e.currentTarget as HTMLElement | null;
-      const source = (e.target as HTMLElement).closest<HTMLElement>('[data-row-id]');
+      const source = subject.columnId
+        ? (e.target as HTMLElement)
+            .closest<HTMLElement>('[data-row-id]')
+            ?.querySelector<HTMLElement>(`[data-col-id="${subject.columnId}"]`) ?? null
+        : (e.target as HTMLElement).closest<HTMLElement>('[data-row-id]');
       const startX = e.clientX;
       const startY = e.clientY;
 
@@ -84,10 +91,22 @@ export function useRowDrag(
         if (ghost) ghost.style.visibility = '';
 
         const frame = el?.closest<HTMLElement>('[data-row-id]');
-        if (!frame || frame.dataset.rowId === dragging.current) return null;
+        if (!frame) return null;
+
+        // 拖整列時，落在自己身上沒有意義。
+        // 但拖「一欄」時，自己那一列是合法落點——那正是「把這一欄
+        // 拆出來變成自己的一列」，否則全部併成一列之後就沒地方可放了。
+        const onSelf = frame.dataset.rowId === dragging.current?.rowId;
+        if (onSelf && !dragging.current?.columnId) return null;
 
         const r = frame.getBoundingClientRect();
         const index = Number(frame.dataset.rowIndex);
+
+        // 拖一欄落在自己那一列的側邊＝原地不動，只認上下半的拆出
+        if (onSelf) {
+          const after = y > r.top + r.height / 2;
+          return { mode: 'row', index: after ? index + 1 : index };
+        }
 
         // 左右外緣才是併欄，而且用固定寬度不是比例
         if (x - r.left < SIDE_ZONE_PX)
@@ -105,8 +124,8 @@ export function useRowDrag(
           const moved = Math.hypot(ev.clientX - startX, ev.clientY - startY);
           if (moved < DRAG_THRESHOLD_PX) return;
           started = true;
-          dragging.current = rowId;
-          setDraggingRowId(rowId);
+          dragging.current = subject;
+          setDraggingRowId(subject.rowId);
           if (source) {
             const r = source.getBoundingClientRect();
             offsetX = startX - r.left;
@@ -136,7 +155,7 @@ export function useRowDrag(
         // 放開的位置才是真正的落點。中途若完全沒有 move 事件
         // （拖太快、事件被合併），這裡補算一次。
         const t = started ? (targetAt(ev.clientX, ev.clientY) ?? target.current) : null;
-        const id = dragging.current;
+        const subj = dragging.current;
 
         ghost?.remove();
         ghost = null;
@@ -145,7 +164,7 @@ export function useRowDrag(
         setDraggingRowId(null);
         setDropTarget(null);
 
-        if (id && t) commit(id, t);
+        if (subj && t) commit(subj, t);
       };
 
       // 抓住指標，滑出視窗也不會卡在拖曳中。

@@ -15,6 +15,13 @@ export type Action =
   | { type: 'insertRow'; index: number; blocks: Block[] }
   | { type: 'deleteRow'; rowId: string }
   | { type: 'moveRow'; rowId: string; target: DropTarget }
+  /**
+   * 把一欄從多欄的列裡搬出去。
+   *
+   * 沒有這個動作，兩塊併成兩欄之後就再也拆不開——因為握把是掛在
+   * 「列」上的，搬的是整列。老師併錯了會卡住。
+   */
+  | { type: 'moveColumn'; rowId: string; columnId: string; target: DropTarget }
   | { type: 'setColumnWidths'; rowId: string; widths: number[] }
   | { type: 'setBreakBefore'; rowId: string; value: boolean }
   | { type: 'setText'; blockId: string; text: string }

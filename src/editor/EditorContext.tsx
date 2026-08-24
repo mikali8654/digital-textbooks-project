@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
-import { useRowDrag } from './useRowDrag';
+import { useRowDrag, type DragSubject } from './useRowDrag';
 import type { DropTarget } from '../model/actions';
 import type { useEditor } from '../hooks/useEditor';
 
@@ -26,7 +26,7 @@ export type EditorUI = {
   setDropTarget: (t: DropTarget | null) => void;
 
   /** 從握把開始拖曳。 */
-  startDrag: (e: PointerEvent, rowId: string) => void;
+  startDrag: (e: PointerEvent, subject: DragSubject) => void;
 };
 
 const Ctx = createContext<(Editor & EditorUI) | null>(null);
@@ -38,8 +38,12 @@ export function EditorProvider({ editor, children }: { editor: Editor; children:
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
 
   const commit = useCallback(
-    (rowId: string, target: DropTarget) =>
-      editor.dispatch({ type: 'moveRow', rowId, target }),
+    (subject: DragSubject, target: DropTarget) =>
+      editor.dispatch(
+        subject.columnId
+          ? { type: 'moveColumn', rowId: subject.rowId, columnId: subject.columnId, target }
+          : { type: 'moveRow', rowId: subject.rowId, target }
+      ),
     [editor]
   );
   const { startDrag } = useRowDrag(setDraggingRowId, setDropTarget, commit);

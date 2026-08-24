@@ -101,6 +101,22 @@ export function applyAction(doc: Doc, action: Action): Doc {
       return rows.length === doc.rows.length ? doc : { ...doc, rows };
     }
 
+    case 'moveColumn': {
+      const src = doc.rows.find((r) => r.id === action.rowId);
+      // 單欄的列請用 moveRow——這裡只處理「從多欄拆一欄出來」
+      if (!src || src.columns.length < 2) return doc;
+      const col = src.columns.find((c) => c.id === action.columnId);
+      if (!col) return doc;
+
+      const trimmed: Row = {
+        ...src,
+        columns: normalizeWidths(src.columns.filter((c) => c.id !== col.id)),
+      };
+      const rest = doc.rows.map((r) => (r.id === src.id ? trimmed : r));
+      const moved: Row = { id: newId('row'), breakBefore: false, columns: [col] };
+      return { ...doc, rows: prune(applyDrop(rest, moved, action.target)) };
+    }
+
     case 'moveRow': {
       const { rest, taken } = detachRow(doc.rows, action.rowId);
       if (!taken) return doc;
