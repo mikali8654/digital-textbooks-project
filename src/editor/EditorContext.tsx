@@ -25,8 +25,23 @@ export type EditorUI = {
   dropTarget: DropTarget | null;
   setDropTarget: (t: DropTarget | null) => void;
 
+  /**
+   * 目前選起來的那一段字，以及它屬於哪個元件。
+   *
+   * slice 是這個片段在原文的位置——段落被切到第二頁時，畫面上的
+   * 第 0 個字並不是原文的第 0 個字，套用標記前要先加回去。
+   */
+  inlineSelection: InlineSelection | null;
+  setInlineSelection: (s: InlineSelection | null) => void;
+
   /** 從握把開始拖曳。 */
   startDrag: (e: PointerEvent, subject: DragSubject) => void;
+};
+
+export type InlineSelection = {
+  blockId: string;
+  range: { start: number; end: number };
+  slice?: { start: number; end: number };
 };
 
 const Ctx = createContext<(Editor & EditorUI) | null>(null);
@@ -36,6 +51,7 @@ export function EditorProvider({ editor, children }: { editor: Editor; children:
   const [insertAt, openInsert] = useState<number | null>(null);
   const [draggingRowId, setDraggingRowId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+  const [inlineSelection, setInlineSelection] = useState<InlineSelection | null>(null);
 
   const commit = useCallback(
     (subject: DragSubject, target: DropTarget) =>
@@ -59,9 +75,11 @@ export function EditorProvider({ editor, children }: { editor: Editor; children:
       setDraggingRowId,
       dropTarget,
       setDropTarget,
+      inlineSelection,
+      setInlineSelection,
       startDrag,
     }),
-    [editor, selectedBlockId, insertAt, draggingRowId, dropTarget, startDrag]
+    [editor, selectedBlockId, insertAt, draggingRowId, dropTarget, inlineSelection, startDrag]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

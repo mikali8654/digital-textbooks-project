@@ -22,6 +22,60 @@ export const GlobalStyle = createGlobalStyle`
   }
   :focus:not(:focus-visible) { outline: none; }
 
+  /*
+   * 行內標記的樣式。
+   *
+   * 放在全域而不是 styled-component，因為量測用的隱形探針、編輯區、
+   * 預覽、檢視台都要長得一模一樣——注音會撐高行高，四邊只要有一邊
+   * 少了這段 CSS，量到的高度就跟畫出來的不一致，內容會被切掉。
+   * 這跟 blockSizing 是同一條原則：量測與渲染共用同一個來源。
+   */
+  .ds-rich {
+    white-space: pre-wrap;
+    word-break: break-word;
+
+    ruby { ruby-position: over; }
+
+    rt {
+      font-size: 0.4em;
+      line-height: 1;
+      color: ${(p) => p.theme.text.secondary};
+      user-select: none;
+    }
+
+    /*
+     * 重點詞是語意標記：生字表與全書搜尋都靠它，不是單純的底線。
+     *
+     * 橫排畫在字下面，直排畫在字的右側——中文的著重號本來就在右邊，
+     * 直排時 block-end 是左邊，畫在那裡會變成錯的一側。
+     */
+    [data-kw] { border-block-end: 2px solid ${(p) => p.theme.border.accent}; }
+
+    [data-bold] { font-weight: 700; }
+    [data-color='accent'] { color: ${(p) => p.theme.text.accent}; }
+    [data-color='secondary'] { color: ${(p) => p.theme.text.secondary}; }
+
+    /*
+     * 注釋號是一個原子，跟注音同一類：看得到、刪得掉，但編不進去。
+     * 游標計算會跳過它（見 editor/caret.ts），所以行內標記的範圍
+     * 不會因為課文裡有 25 個編號而整段位移。
+     */
+    sup[data-fn] {
+      font-size: 0.6em;
+      font-weight: 700;
+      color: ${(p) => p.theme.text.accent};
+      margin-inline-start: 2px;
+      user-select: none;
+      cursor: default;
+    }
+  }
+
+  [data-vertical] .ds-rich [data-kw],
+  .ds-rich[data-vertical] [data-kw] {
+    border-block-end: none;
+    border-block-start: 2px solid ${(p) => p.theme.border.accent};
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.01ms !important;

@@ -1,7 +1,6 @@
 /** 拿真實教材檔檢驗 parser 的涵蓋率：每一列被辨識成什麼，有沒有東西被吞掉。 */
 import { readFileSync } from 'node:fs';
 import { parseMarkdown } from '../src/model/markdown';
-import { textOf } from '../src/model/document';
 import type { Block, TextBlock } from '../src/model/types';
 
 const file = process.argv[2];
@@ -32,5 +31,4 @@ console.log('\n區塊型別分布');
 for (const [k, v] of Object.entries(counts).sort((a, b) => b[1] - a[1])) {
   console.log(`  ${k.padEnd(22)} ${v}`);
 }
-const unknown = counts['text:body'] ?? 0;
-console.log(`\n（若某科的 text:body 異常多，代表有構造沒被辨識、掉進內文）`);
+console.log(`\n內文 ${counts['text:body'] ?? 0} 段。若某科異常多，代表有構造沒被辨識、掉進內文。`);

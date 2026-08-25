@@ -2,6 +2,7 @@ import { canHavePopup } from './registry';
 import { newId } from './ids';
 import type { Action, DropTarget } from './actions';
 import type { Block, Column, Doc, Row } from './types';
+import { mergeSpans, sliceSpans, spliceSpans } from './spans';
 
 /** 同一列的欄寬總和恆為 100。 */
 function normalizeWidths(columns: Column[]): Column[] {
@@ -17,8 +18,12 @@ function mapBlock(doc: Doc, blockId: string, fn: (b: Block) => Block): Doc {
       ...col,
       blocks: col.blocks.map((b) => {
         if (b.id !== blockId) return b;
+        const next = fn(b);
+        // 回傳同一個物件＝什麼都沒改。這時整份文件也要維持同一個物件，
+        // 否則「把粗體設成粗體」這種沒有效果的操作會佔掉一次復原。
+        if (next === b) return b;
         touched = true;
-        return fn(b);
+        return next;
       }),
     })),
   }));
@@ -154,9 +159,29 @@ export function applyAction(doc: Doc, action: Action): Doc {
         b.type === 'text' ? { ...b, spans: [{ text: action.text }] } : b
       );
 
+    case 'setSpans':
+      return mapBlock(doc, action.blockId, (b) =>
+        b.type === 'text' ? { ...b, spans: mergeSpans(action.spans) } : b
+      );
+
+    case 'toggleMark':
+      return mapBlock(doc, action.blockId, (b) => {
+        if (b.type !== 'text' || action.start >= action.end) return b;
+        const marked = sliceSpans(b.spans, action.start, action.end).map((s) => ({
+          ...s,
+          [action.mark]: action.on ? true : undefined,
+        }));
+        return { ...b, spans: spliceSpans(b.spans, action.start, action.end, marked) };
+      });
+
     case 'setTextRole':
       return mapBlock(doc, action.blockId, (b) =>
         b.type === 'text' ? { ...b, role: action.role } : b
+      );
+
+    case 'patchBlock':
+      return mapBlock(doc, action.blockId, (b) =>
+        b.type === action.blockType ? ({ ...b, ...action.patch } as typeof b) : b
       );
 
     case 'addPopup':

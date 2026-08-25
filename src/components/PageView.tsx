@@ -31,6 +31,7 @@ export function PageView({ page, settings, scale, rowIndexOf }: Props) {
     <Frame style={{ width: size.width * scale, height: size.height * scale }}>
       <Sheet
         $vertical={vertical}
+        data-vertical={vertical || undefined}
         style={{ width: size.width, height: size.height, transform: `scale(${scale})` }}
       >
         {page.items.map((item) => (

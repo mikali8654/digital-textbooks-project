@@ -1,7 +1,12 @@
 import styled from 'styled-components';
 import { roleStyle, TEXT_SCALE } from '../styles/roles';
 import { blockBox, type SizingContext } from '../model/blockSizing';
+import { spansToHtml } from '../model/inlineDom';
 import { EditableText } from './EditableText';
+import { ImageBlockView } from './blocks/ImageBlockView';
+import { VideoBlockView } from './blocks/VideoBlockView';
+import { WebBlockView } from './blocks/WebBlockView';
+import type { BlockPatch } from '../model/actions';
 import type { Block, DocSettings, InlineSpan } from '../model/types';
 
 type Props = {
@@ -9,18 +14,30 @@ type Props = {
   settings: DocSettings;
   sizing: SizingContext;
   /** 唯讀（預覽模式）時不給編輯。 */
-  onEditText?: (fragment: string) => void;
-  /** 這個片段在原文裡的位置。被切成兩頁的課文才有。 */
-  slice?: { start: number; end: number };
+  onEditSpans?: (spans: InlineSpan[]) => void;
+  /** 改元件屬性（圖說、標題、尺寸）。唯讀時不傳。 */
+  onPatch?: (patch: BlockPatch) => void;
+  /** 選了一段字。浮動膠囊靠它決定要不要出現。 */
+  onSelectRange?: (range: { start: number; end: number } | null) => void;
   /** 點下去選中這個元件。唯讀時不傳。 */
   onSelect?: () => void;
 };
 
 /**
- * 區塊的呈現。D2 只求「量得準、看得出來」，
- * 完整的元件（選取態、浮動膠囊、Pop-up）在 D4 之後。
+ * 區塊的呈現。
+ *
+ * 編輯與唯讀走同一組 HTML（spansToHtml）與同一個 class（ds-rich），
+ * 所以老師編的樣子、學生看的樣子、量測器量的樣子是同一個。
  */
-export function BlockView({ block, settings, sizing, onEditText, onSelect }: Props) {
+export function BlockView({
+  block,
+  settings,
+  sizing,
+  onEditSpans,
+  onPatch,
+  onSelectRange,
+  onSelect,
+}: Props) {
   const scale = TEXT_SCALE[settings.textScale];
 
   // 非文字區塊：尺寸由 blockSizing 決定，跟量測用的是同一個函式，
@@ -35,62 +52,70 @@ export function BlockView({ block, settings, sizing, onEditText, onSelect }: Pro
   switch (block.type) {
     case 'text': {
       const s = roleStyle(block.role, scale);
-      const plain = block.spans.map((sp) => sp.text).join('');
-      // 行內樣式（重點詞、注音、注釋號）目前是唯讀呈現。
-      // 要能一邊打字一邊保留行內標記，需要真正的行內編輯器，那是 D5。
-      const hasInline = block.spans.some((sp) => sp.keyword || sp.ruby || sp.footnoteRef);
 
-      if (onEditText && !hasInline) {
+      // 帶注音、重點詞、注釋號的段落也能直接編：標記存在 DOM 上，
+      // 打字動的是文字節點，碰不到標記本身。
+      if (onEditSpans) {
         return (
           <EditableTextStyled
+            className="ds-rich"
             style={s}
-            value={plain}
+            spans={block.spans}
             onFocus={onSelect}
-            onChange={onEditText}
+            onChange={onEditSpans}
+            onSelect={onSelectRange}
             placeholder={block.role === 'lessonTitle' ? '輸入標題…' : '輸入內容…'}
           />
         );
       }
       return (
-        <Text style={s}>
-          {block.spans.map((span, i) => (
-            <Span key={i} span={span} />
-          ))}
-        </Text>
+        <Text
+          className="ds-rich"
+          style={s}
+          dangerouslySetInnerHTML={{ __html: spansToHtml(block.spans) }}
+        />
       );
     }
     case 'image':
       return (
-        <figure style={{ margin: 0 }} onPointerDown={onSelect}>
-          <Placeholder style={boxStyle}>{block.alt || '圖片'}</Placeholder>
-          {block.caption && <Caption>{block.caption}</Caption>}
-        </figure>
+        <ImageBlockView
+          block={block}
+          boxStyle={boxStyle}
+          onPatch={onPatch}
+          onSelect={onSelect}
+        />
+      );
+    case 'video':
+      return (
+        <VideoBlockView
+          block={block}
+          boxStyle={boxStyle}
+          onPatch={onPatch}
+          onSelect={onSelect}
+        />
+      );
+    case 'web':
+      return (
+        <WebBlockView block={block} boxStyle={boxStyle} onPatch={onPatch} onSelect={onSelect} />
       );
     case 'dialogue':
       return (
-        <Bubble>
+        <Bubble onPointerDown={onSelect}>
           <Speaker>{block.speaker}</Speaker>
           {block.text}
         </Bubble>
       );
-    case 'web':
-      return (
-        <Card>
-          <strong>{block.title}</strong>
-          <Url>{block.url}</Url>
-        </Card>
-      );
     case 'question':
       return (
-        <Card>
+        <Card onPointerDown={onSelect}>
           {block.questionType && <Tag>{block.questionType}</Tag>}
           <strong>
-            {block.number}. {block.stem.map((s) => s.text).join('')}
+            {block.number}. {block.stem.map((s2) => s2.text).join('')}
           </strong>
           <Options>
             {block.options.map((o) => (
               <li key={o.key}>
-                ({o.key}) {o.text.map((s) => s.text).join('')}
+                ({o.key}) {o.text.map((s2) => s2.text).join('')}
               </li>
             ))}
           </Options>
@@ -98,51 +123,25 @@ export function BlockView({ block, settings, sizing, onEditText, onSelect }: Pro
       );
     case 'table':
       return (
-        <Card>
+        <Card onPointerDown={onSelect}>
           <Tag>表格 {block.rows}×{block.cols}</Tag>
         </Card>
       );
     case 'reference':
-      return <Ref>配合{block.target}第 {block.pages} 頁</Ref>;
+      return <Ref onPointerDown={onSelect}>配合{block.target}第 {block.pages} 頁</Ref>;
     default:
-      return <Card><Tag>{block.type}</Tag></Card>;
+      return <Card onPointerDown={onSelect}><Tag>{block.type}</Tag></Card>;
   }
-}
-
-/** 行內樣式。注音用 ruby，台灣的注音直排橫排都在字的右側。 */
-function Span({ span }: { span: InlineSpan }) {
-  const content = span.ruby ? (
-    <ruby>
-      {span.text}
-      <rt>{span.ruby}</rt>
-    </ruby>
-  ) : (
-    span.text
-  );
-
-  if (span.keyword) return <Keyword>{content}</Keyword>;
-  if (span.bold) return <strong>{content}</strong>;
-  if (span.footnoteRef) return <><>{content}</><Sup>{span.footnoteRef}</Sup></>;
-  return <>{content}</>;
 }
 
 const Text = styled.p`
   margin: 0;
   color: ${(p) => p.theme.text.primary};
-  white-space: pre-wrap;
-  word-break: break-word;
-
-  rt {
-    font-size: 0.4em;
-    color: ${(p) => p.theme.text.secondary};
-  }
 `;
 
 const EditableTextStyled = styled(EditableText)`
   margin: 0;
   color: ${(p) => p.theme.text.primary};
-  white-space: pre-wrap;
-  word-break: break-word;
   outline: none;
 
   &:focus-visible {
@@ -158,34 +157,11 @@ const EditableTextStyled = styled(EditableText)`
   }
 `;
 
-const Keyword = styled.span`
-  border-block-end: 2px solid ${(p) => p.theme.border.accent};
-`;
 
-const Sup = styled.sup`
-  font-size: 0.6em;
-  color: ${(p) => p.theme.text.accent};
-  font-weight: 700;
-  margin-inline-start: 2px;
-`;
 
-const Placeholder = styled.div`
-  background: ${(p) => p.theme.surface.media};
-  border-radius: ${(p) => p.theme.radius.field};
-  display: grid;
-  place-items: center;
-  color: ${(p) => p.theme.text.secondary};
-  font-size: var(--ds-typography-caption-size);
-  text-align: center;
-  padding: 8px;
-`;
 
-const Caption = styled.figcaption`
-  margin-block-start: 12px;
-  font-size: calc(var(--ds-typography-caption-size));
-  line-height: var(--ds-typography-caption-line-height);
-  color: ${(p) => p.theme.text.secondary};
-`;
+
+
 
 const Bubble = styled.div`
   background: ${(p) => p.theme.surface.sunken};
@@ -232,11 +208,7 @@ const Options = styled.ol`
   color: ${(p) => p.theme.text.secondary};
 `;
 
-const Url = styled.span`
-  color: ${(p) => p.theme.text.tertiary};
-  font-family: var(--ds-typography-font-display);
-  font-size: var(--ds-typography-label-size);
-`;
+
 
 const Ref = styled.div`
   align-self: flex-start;

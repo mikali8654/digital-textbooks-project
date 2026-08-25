@@ -3,6 +3,7 @@ import { GAP } from '../model/spacing';
 import type { Measurer } from '../model/paginate';
 import type { Block, DocSettings, TextBlock } from '../model/types';
 import { TEXT_SCALE, roleStyle } from '../styles/roles';
+import { spansToHtml } from '../model/inlineDom';
 
 /**
  * 真實量測：把區塊放進一個隱形容器，用瀏覽器自己的排版結果回答高度。
@@ -41,8 +42,11 @@ export function createDomMeasurer(opts: DomMeasurerOptions): DomMeasurer {
 
   const probe = document.createElement('div');
   probe.style.writingMode = vertical ? 'vertical-rl' : 'horizontal-tb';
-  probe.style.wordBreak = 'break-word';
-  probe.style.whiteSpace = 'pre-wrap';
+  // 跟編輯區與預覽同一個 class：注音撐高的行高在這裡也要算進去，
+  // 否則帶注音的段落每一行都會少量一截
+  probe.className = 'ds-rich';
+  // 直排的著重線畫在另一邊，會影響行寬——量測端也要知道現在是直排
+  if (vertical) probe.dataset.vertical = 'true';
   stage.appendChild(probe);
 
   /** block 軸的尺寸：橫排量高、直排量寬。 */
@@ -63,7 +67,8 @@ export function createDomMeasurer(opts: DomMeasurerOptions): DomMeasurer {
       probe.style.width = `${inlineSize}px`;
       probe.style.height = 'auto';
     }
-    probe.textContent = block.spans.map((sp) => sp.text).join('') || '​';
+    // 用與畫面相同的 HTML，不是攤平的純文字——注音與注釋號會影響排版
+    probe.innerHTML = spansToHtml(block.spans) || '&#8203;';
     return probe;
   }
 
@@ -97,11 +102,12 @@ export function createDomMeasurer(opts: DomMeasurerOptions): DomMeasurer {
      */
     textLineSizes(block: TextBlock, inlineSize: number): number[] {
       const el = layoutText(block, inlineSize);
-      const node = el.firstChild;
-      if (!node) return [];
+      if (!el.firstChild) return [];
 
+      // 選整個容器而不是第一個子節點：帶行內標記的段落由多個節點組成，
+      // 只選第一個會漏掉後面的行
       const range = document.createRange();
-      range.selectNodeContents(node);
+      range.selectNodeContents(el);
       const rects = Array.from(range.getClientRects()).filter(
         (r) => r.width > 0 && r.height > 0
       );

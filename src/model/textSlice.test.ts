@@ -5,7 +5,7 @@ import { resetIds } from './ids';
 import { fakeMeasurer, linesOfText } from './testing';
 import { applyAction } from './reducer';
 import { emptyDoc } from './document';
-import type { TextBlock } from './types';
+import type { InlineSpan, TextBlock } from './types';
 
 const OPTS = pageOptionsFor({ writingMode: 'horizontal' }, { width: 800, height: 400 }, 16);
 
@@ -52,5 +52,58 @@ describe('被切開的文字要記住自己在原文的位置', () => {
     // 原文一個字都沒少，只是中間多了三個字
     expect(after.length).toBe(original.length + 3);
     expect(after.endsWith(original.slice(slice.end))).toBe(true);
+  });
+});
+
+describe('跨頁的段落要保住行內標記', () => {
+  /** 一段長課文，重點詞、注釋號、注音散在整段裡——就像〈五柳先生傳〉。 */
+  const richBlock = (): TextBlock => {
+    const unit = '閑靜少言不慕榮利好讀書不求甚解每有會意便欣然忘食';
+    const spans: InlineSpan[] = [];
+    for (let i = 0; i < 40; i += 1) {
+      spans.push({ text: unit });
+      spans.push({ text: '會意', keyword: true, footnoteRef: String(i + 1) });
+      spans.push({ text: '柳', ruby: 'ㄌㄧㄡˇ' });
+    }
+    return { ...makeText(''), spans };
+  };
+
+  it('切到第二頁之後，注音、重點詞、注釋號都還在', () => {
+    const block = richBlock();
+    const pages = paginate([makeRow([block])], OPTS, fakeMeasurer);
+    const items = pages.flatMap((p) => p.items);
+    expect(items.length).toBeGreaterThan(1);
+
+    // 每一頁的片段都還帶著標記，不是只有第一頁
+    for (const item of items) {
+      const b = item.row.columns[0].blocks[0] as TextBlock;
+      expect(b.spans.some((s) => s.keyword)).toBe(true);
+      expect(b.spans.some((s) => s.footnoteRef)).toBe(true);
+    }
+  });
+
+  it('拼回來的注釋參照一個都沒少', () => {
+    const block = richBlock();
+    const before = block.spans.filter((s) => s.footnoteRef).length;
+
+    const pages = paginate([makeRow([block])], OPTS, fakeMeasurer);
+    const after = pages
+      .flatMap((p) => p.items)
+      .flatMap((i) => (i.row.columns[0].blocks[0] as TextBlock).spans)
+      .filter((s) => s.footnoteRef).length;
+
+    // 切點正好落在某個注釋詞中間時它會變成兩段，所以只能是「不減少」
+    expect(after).toBeGreaterThanOrEqual(before);
+  });
+
+  it('各頁的文字接起來仍然等於原文', () => {
+    const block = richBlock();
+    const original = textOf(block);
+    const pages = paginate([makeRow([block])], OPTS, fakeMeasurer);
+    const joined = pages
+      .flatMap((p) => p.items)
+      .map((i) => textOf(i.row.columns[0].blocks[0]))
+      .join('');
+    expect(joined).toBe(original);
   });
 });

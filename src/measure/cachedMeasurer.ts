@@ -1,5 +1,6 @@
 import type { Measurer } from '../model/paginate';
 import type { Block, TextBlock } from '../model/types';
+import { spansToHtml } from '../model/inlineDom';
 
 /**
  * 量測快取。
@@ -15,10 +16,14 @@ import type { Block, TextBlock } from '../model/types';
 /** 區塊內容的指紋。內容沒變就不必重量。 */
 function fingerprint(block: Block): string {
   switch (block.type) {
+    // 用畫出來的 HTML 而不是純文字：注音會撐高行高、注釋號會佔位置，
+    // 只比對文字的話，替一個詞加上注音之後會拿到舊的（偏矮的）高度
     case 'text':
-      return `${block.role} ${(block as TextBlock).spans.map((s) => s.text).join('')}`;
+      return `${block.role} ${spansToHtml((block as TextBlock).spans)}`;
+    // 比例與寬度都會改變圖片佔的空間。少了它們，老師把圖從滿版改成
+    // 「小」之後量測仍然回舊高度，那一頁就會被撐破
     case 'image':
-      return `${block.assetId} ${block.caption}`;
+      return `${block.assetId} ${block.aspectRatio} ${block.widthPct ?? ''} ${block.caption}`;
     case 'table':
       return `${block.rows}x${block.cols} ${block.cells.flat().join('')}`;
     case 'question':

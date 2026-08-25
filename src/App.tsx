@@ -10,6 +10,7 @@ import { useEditor } from './hooks/useEditor';
 import { PageView } from './components/PageView';
 import { PageBreak } from './components/PageBreak';
 import { EditorProvider } from './editor/EditorContext';
+import { FloatingToolbar } from './editor/FloatingToolbar';
 import { Icon } from './components/Icon';
 import type { Doc, DocSettings } from './model/types';
 
@@ -202,6 +203,7 @@ export function App() {
               </PageSlot>
             ))}
           </Stage>
+          <FloatingToolbar />
         </EditorProvider>
       )}
     </Layout>

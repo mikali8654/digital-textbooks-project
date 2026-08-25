@@ -1,4 +1,4 @@
-import type { BlockType } from './types';
+import type { BlockType, TextRole } from './types';
 
 /**
  * 區塊型別登錄表。
@@ -38,3 +38,22 @@ export const blockRegistry: Record<BlockType, BlockMeta> = {
 export const canHavePopup = (t: BlockType) => blockRegistry[t].canHavePopup;
 export const isSplittable = (t: BlockType) => blockRegistry[t].splittable;
 export const isBoxLike = (t: BlockType) => blockRegistry[t].boxLike;
+
+/**
+ * 九種角色在介面上的名字。
+ *
+ * 刻意用課本的詞彙，不用字級。叫「內文小」老師會拿來塞字——
+ * 哪一段是內文、哪一段是補充，是內容的事實，不是排版的偏好；
+ * 生字表、朗讀順序、全書搜尋全部依賴這個分類是對的。
+ */
+export const ROLE_LABEL: Record<TextRole, string> = {
+  lessonTitle: '課名',
+  sectionTitle: '大標',
+  itemTitle: '中標',
+  subItemTitle: '小標',
+  lead: '導言',
+  body: '內文',
+  supplement: '補充',
+  annotation: '注釋',
+  caption: '圖說',
+};

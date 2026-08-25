@@ -5,7 +5,7 @@ import { makeRow, makeText } from '../model/document';
 import { resetIds } from '../model/ids';
 import { fakeMeasurer, linesOfText } from '../model/testing';
 import { applyAction } from '../model/reducer';
-import type { Doc, TextBlock } from '../model/types';
+import type { Doc, ImageBlock, TextBlock } from '../model/types';
 import { emptyDoc } from '../model/document';
 
 const PAGE = { width: 800, height: 600 };
@@ -84,5 +84,59 @@ describe('量測快取', () => {
     const cached = paginate(doc.rows, OPTS, withCache(fakeMeasurer));
     expect(cached.map((p) => p.items.length)).toEqual(plain.map((p) => p.items.length));
     expect(cached.map((p) => p.usedBlockSize)).toEqual(plain.map((p) => p.usedBlockSize));
+  });
+});
+
+describe('快取鍵要涵蓋所有會改變尺寸的東西', () => {
+  /** 量到的高度若不隨這些欄位變，畫面就會跟分頁對不起來，內容被切掉。 */
+  const measureOnce = (block: Parameters<typeof fakeMeasurer.blockSize>[0]) => {
+    const m = withCache(fakeMeasurer);
+    m.blockSize(block, 400, 600);
+    return m;
+  };
+
+  const img = (patch: Partial<ImageBlock> = {}): ImageBlock => ({
+    id: 'blk_img', type: 'image', assetId: null, alt: '', caption: '',
+    aspectRatio: 1.5, popups: [], ...patch,
+  });
+
+  it('圖片換了比例就要重量', () => {
+    const m = measureOnce(img());
+    const before = m.stats.misses;
+    m.blockSize(img({ aspectRatio: 16 / 9 }), 400, 600);
+    expect(m.stats.misses).toBe(before + 1);
+  });
+
+  it('圖片改了寬度就要重量', () => {
+    const m = measureOnce(img());
+    const before = m.stats.misses;
+    m.blockSize(img({ widthPct: 35 }), 400, 600);
+    expect(m.stats.misses).toBe(before + 1);
+  });
+
+  it('文字加了注音就要重量——注音會撐高行高', () => {
+    const plain: TextBlock = {
+      id: 'blk_t', type: 'text', role: 'body', popups: [], spans: [{ text: '五柳先生' }],
+    };
+    const ruby: TextBlock = {
+      ...plain,
+      spans: [{ text: '五' }, { text: '柳', ruby: 'ㄌㄧㄡˇ' }, { text: '先生' }],
+    };
+    const m = withCache(fakeMeasurer);
+    m.blockSize(plain, 400, 600);
+    const before = m.stats.misses;
+    m.blockSize(ruby, 400, 600);
+    expect(m.stats.misses).toBe(before + 1);
+  });
+
+  it('同一段沒改就還是命中，不會因為換了鍵而全部重量', () => {
+    const plain: TextBlock = {
+      id: 'blk_t', type: 'text', role: 'body', popups: [], spans: [{ text: '五柳先生' }],
+    };
+    const m = withCache(fakeMeasurer);
+    m.blockSize(plain, 400, 600);
+    const before = m.stats.hits;
+    m.blockSize({ ...plain, spans: [{ text: '五柳先生' }] }, 400, 600);
+    expect(m.stats.hits).toBe(before + 1);
   });
 });

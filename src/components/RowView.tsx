@@ -157,16 +157,40 @@ export function RowView({ item, settings, contentInline, contentBlock, rowIndex 
                   </ColGrip>
                 )}
                 {col.blocks.map((b) => (
-                  <BlockView
+                  <BlockShell
                     key={b.id}
-                    block={b}
-                    settings={settings}
-                    sizing={{ inlineSize: colInline, maxBlockSize: contentBlock, vertical }}
-                    onEditText={
-                      ed ? (fragment) => ed.editText(b.id, fragment, item.textSlice) : undefined
-                    }
-                    onSelect={ed ? () => ed.select(b.id) : undefined}
-                  />
+                    data-block-id={b.id}
+                    $selected={ed?.selectedBlockId === b.id}
+                  >
+                    <BlockView
+                      block={b}
+                      settings={settings}
+                      sizing={{ inlineSize: colInline, maxBlockSize: contentBlock, vertical }}
+                      onEditSpans={
+                        ed ? (spans) => ed.editSpans(b.id, spans, item.textSlice) : undefined
+                      }
+                      onPatch={
+                        ed
+                          ? (patch) =>
+                              ed.dispatch({
+                                type: 'patchBlock',
+                                blockId: b.id,
+                                blockType: b.type,
+                                patch,
+                              })
+                          : undefined
+                      }
+                      onSelectRange={
+                        ed
+                          ? (range) =>
+                              ed.setInlineSelection(
+                                range ? { blockId: b.id, range, slice: item.textSlice } : null
+                              )
+                          : undefined
+                      }
+                      onSelect={ed ? () => ed.select(b.id) : undefined}
+                    />
+                  </BlockShell>
                 ))}
                 {ed && ci < row.columns.length - 1 && (
                   <Divider
@@ -445,4 +469,21 @@ const Continues = styled.div<{ $end?: boolean }>`
   &::before {
     content: '${(p) => (p.$end ? '↓ ' : '↑ ')}';
   }
+`;
+
+/**
+ * 元件的外框。
+ *
+ * 存在的理由有兩個：給浮動膠囊一個可以定位的錨點（data-block-id），
+ * 以及畫選取態。外框用 outline 不用 border——border 會改變元素尺寸，
+ * 而尺寸是分頁算過的，一改就跟量測對不起來。
+ */
+const BlockShell = styled.div<{ $selected?: boolean }>`
+  position: relative;
+  border-radius: 4px;
+  outline: ${(p) =>
+    p.$selected
+      ? `${p.theme.border.widthSelected} solid ${p.theme.border.accent}`
+      : 'none'};
+  outline-offset: 4px;
 `;

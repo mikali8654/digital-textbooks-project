@@ -4,17 +4,14 @@
  * D1 的引擎沒有畫面，這個腳本讓人不必讀測試也能看見它的行為。
  *   npm run inspect
  */
-import { parseMarkdown } from '../src/model/markdown';
+import { applyImport, parseMarkdown } from '../src/model/markdown';
 import { paginate, type Page } from '../src/model/paginate';
 import { applyAction } from '../src/model/reducer';
 import { emptyDoc, textOf } from '../src/model/document';
 import { fakeMeasurer, pageOptions } from '../src/model/testing';
 import type { Doc, Row, TextBlock } from '../src/model/types';
+import { ROLE_LABEL } from '../src/model/registry';
 
-const ROLE_LABEL: Record<string, string> = {
-  lessonTitle: '課名', h1: '大標', h2: '中標', h3: '小標', lead: '導言',
-  body: '內文', supplement: '補充', annotation: '注釋', caption: '圖說',
-};
 
 const md = `# 星星的世界
 
@@ -75,7 +72,10 @@ function render(pages: Page[], title: string) {
 const run = (doc: Doc) => paginate(doc.rows, pageOptions, fakeMeasurer);
 
 // ── 1. 匯入 md，自動切頁 ──────────────────────────────
-let doc: Doc = { ...emptyDoc('自然 三年級下學期 第三單元'), rows: parseMarkdown(md, { autoPageBreak: true }) };
+let doc: Doc = applyImport(
+  emptyDoc('自然 三年級下學期 第三單元'),
+  parseMarkdown(md, { autoPageBreak: true })
+);
 render(run(doc), '① 匯入 md（自動切頁）— 每個大標與中標各起一頁');
 
 // ── 2. 在最前面加一大段字 ────────────────────────────

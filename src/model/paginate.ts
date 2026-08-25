@@ -1,6 +1,7 @@
 import { isSplittable } from './registry';
 import { gapBefore } from './spacing';
 import type { Block, DocSettings, Row, TextBlock } from './types';
+import { lengthOf, sliceSpans } from './spans';
 
 /**
  * 把內容流切成頁。
@@ -133,11 +134,13 @@ function splitTextRow(
   if (fitCount < 1 || fitCount >= lines.length) return null;
 
   const ratio = fitCount / lines.length;
-  const plain = block.spans.map((s) => s.text).join('');
-  const cut = Math.max(1, Math.round(plain.length * ratio));
+  const total = lengthOf(block.spans);
+  const cut = Math.max(1, Math.round(total * ratio));
 
-  const headBlock: TextBlock = { ...block, spans: [{ text: plain.slice(0, cut) }] };
-  const tailBlock: TextBlock = { ...block, spans: [{ text: plain.slice(cut) }] };
+  // 用 sliceSpans 而不是攤平成純文字：跨頁的段落到了第二頁
+  // 仍然帶著注音、重點詞和注釋號。〈五柳先生傳〉的正文正好跨頁。
+  const headBlock: TextBlock = { ...block, spans: sliceSpans(block.spans, 0, cut) };
+  const tailBlock: TextBlock = { ...block, spans: sliceSpans(block.spans, cut, total) };
 
   return {
     head: { ...row, columns: [{ ...row.columns[0], blocks: [headBlock] }] },
@@ -174,7 +177,7 @@ export function paginate(rows: Row[], o: PageOptions, m: Measurer): Page[] {
     if (offset === 0 && !split) return undefined;
     const text = splittableTextOf(row);
     if (!text) return undefined;
-    const len = text.spans.map((s) => s.text).join('').length;
+    const len = lengthOf(text.spans);
     return { start: offset, end: offset + len };
   };
 

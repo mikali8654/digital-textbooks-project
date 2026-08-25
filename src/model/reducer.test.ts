@@ -172,3 +172,110 @@ describe('併欄之後要拆得回來', () => {
     expect(next).toBe(doc);
   });
 });
+
+describe('行內標記', () => {
+  const richRow = () => {
+    const b: TextBlock = {
+      id: newId('blk'),
+      type: 'text',
+      role: 'body',
+      popups: [],
+      spans: [
+        { text: '先生不知' },
+        { text: '何許', keyword: true, footnoteRef: '1' },
+        { text: '人也' },
+      ],
+    };
+    return { row: makeRow([b]), id: b.id };
+  };
+
+  it('setSpans 換掉整段，注釋參照跟著新內容走', () => {
+    const { row, id } = richRow();
+    const next = applyAction(docWith(row), {
+      type: 'setSpans',
+      blockId: id,
+      spans: [{ text: '甲' }, { text: '乙', footnoteRef: '2' }],
+    });
+    const b = next.rows[0].columns[0].blocks[0] as TextBlock;
+    expect(b.spans).toEqual([{ text: '甲' }, { text: '乙', footnoteRef: '2' }]);
+  });
+
+  it('setSpans 會把碎掉的相同標記併回去', () => {
+    const { row, id } = richRow();
+    const next = applyAction(docWith(row), {
+      type: 'setSpans',
+      blockId: id,
+      spans: [{ text: '一' }, { text: '二' }, { text: '三' }],
+    });
+    expect((next.rows[0].columns[0].blocks[0] as TextBlock).spans).toEqual([{ text: '一二三' }]);
+  });
+
+  it('toggleMark 只標到選的那幾個字', () => {
+    const { row, id } = richRow();
+    const next = applyAction(docWith(row), {
+      type: 'toggleMark', blockId: id, start: 0, end: 2, mark: 'keyword', on: true,
+    });
+    const spans = (next.rows[0].columns[0].blocks[0] as TextBlock).spans;
+    expect(spans[0]).toEqual({ text: '先生', keyword: true });
+    expect(spans[1]).toEqual({ text: '不知' });
+    // 原本就有的重點詞與注釋號沒被動到
+    expect(spans.find((s) => s.footnoteRef)).toMatchObject({ text: '何許', keyword: true });
+  });
+
+  it('toggleMark 取消標記不會連注釋參照一起拿掉', () => {
+    const { row, id } = richRow();
+    const next = applyAction(docWith(row), {
+      type: 'toggleMark', blockId: id, start: 4, end: 6, mark: 'keyword', on: false,
+    });
+    const spans = (next.rows[0].columns[0].blocks[0] as TextBlock).spans;
+    const fn = spans.find((s) => s.footnoteRef)!;
+    expect(fn.footnoteRef).toBe('1');
+    expect(fn.keyword).toBeUndefined();
+  });
+
+  it('空的範圍什麼都不做，不佔一次復原', () => {
+    const { row, id } = richRow();
+    const doc = docWith(row);
+    expect(
+      applyAction(doc, { type: 'toggleMark', blockId: id, start: 3, end: 3, mark: 'bold', on: true })
+    ).toBe(doc);
+  });
+
+  it('文字內容不受行內標記影響', () => {
+    const { row, id } = richRow();
+    const next = applyAction(docWith(row), {
+      type: 'toggleMark', blockId: id, start: 1, end: 5, mark: 'bold', on: true,
+    });
+    expect(textOf(next.rows[0].columns[0].blocks[0])).toBe('先生不知何許人也');
+  });
+});
+
+describe('patchBlock', () => {
+  it('改得動圖說', () => {
+    const img = image();
+    const next = applyAction(docWith(makeRow([img])), {
+      type: 'patchBlock', blockId: img.id, blockType: 'image', patch: { caption: '圖 4-1 嘉南大圳' },
+    });
+    expect((next.rows[0].columns[0].blocks[0] as ImageBlock).caption).toBe('圖 4-1 嘉南大圳');
+  });
+
+  it('上傳圖片時比例與 assetId 一起換掉', () => {
+    const img = image();
+    const next = applyAction(docWith(makeRow([img])), {
+      type: 'patchBlock', blockId: img.id, blockType: 'image',
+      patch: { assetId: 'asset-1', aspectRatio: 16 / 9 },
+    });
+    const b = next.rows[0].columns[0].blocks[0] as ImageBlock;
+    expect(b.assetId).toBe('asset-1');
+    expect(b.aspectRatio).toBeCloseTo(16 / 9);
+  });
+
+  it('型別對不上就整個不動——舊的 id 不會把網址蓋到影片上', () => {
+    const v = video();
+    const doc = docWith(makeRow([v]));
+    const next = applyAction(doc, {
+      type: 'patchBlock', blockId: v.id, blockType: 'image', patch: { caption: '不該進來' },
+    });
+    expect(next.rows[0].columns[0].blocks[0]).toEqual(v);
+  });
+});
