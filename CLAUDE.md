@@ -16,19 +16,44 @@
   這是為了保證老師的第 76 頁和學生的第 76 頁是同一頁——各校平板規格不一，
   若採用真正的響應式重排，分頁會因裝置而異，那在教學現場無法使用。
 
-## 圖片尺寸：兩個必須知道的事
+## 圖片尺寸
 
-**`aspectRatio` 目前是暫定值。** md 匯入只有檔案路徑，讀不到尺寸，
-所以 `markdown.ts` 填的是常數。真實比例要在「上傳圖片」時從
-`naturalWidth / naturalHeight` 讀出來寫進 `ImageBlock.aspectRatio`——
-在那之前，含圖頁面的分頁高度是估的，不是準的。
+**`aspectRatio` 由上傳時決定。** `editor/assets.ts` 的 `putImage()` 從
+`naturalWidth / naturalHeight` 讀真實比例，跟 `assetId` 一起寫回去——
+兩個欄位必須同時更新，否則會出現「新的圖、舊的比例」那一幀。
+md 匯入只有檔案路徑讀不到尺寸，填的仍是常數，所以**未上傳、只從 md
+來的圖，分頁高度是估的**。
 
-**圖片預設吃滿欄寬。** 尺寸規則在 `blockSizing.ts`，量測與渲染共用
-同一個函式。不要為了美觀加「最多佔一頁幾成」這類上限——那會讓圖片
-比文字窄、左右邊界對不齊，破壞版面的系統性。要縮小是老師的決定
-（`ImageBlock.widthPct`），不是預設值。
+**預設最多佔一頁的 45%，老師調過就放寬到整頁。** 規則在
+`blockSizing.ts`，量測與渲染共用同一個函式。這個上限不是美觀考量：
+4:3 頁面下一張 3:2 的圖吃滿欄寬就是 597px，佔掉整頁的 93%，
+插一張圖等於用掉一頁，老師沒辦法圖文混排。上限只約束預設值，
+老師設過 `widthPct` 就以他的決定為準。
 
-只有一種情況會自動縮：照比例算出來會超出一頁時，等比縮到放得下。
+## 行內標記：三條不能破的規則
+
+課文裡有注音、重點詞、注釋參照，國文一課有 25 條注釋。
+`contentEditable` 天真地用會把它們全部壓成純文字，打一個字就全斷。
+
+**一、標記存在 DOM 上，不是靠純文字。** `model/inlineDom.ts` 負責
+`spans ⇄ DOM` 雙向轉換。可以在裡面打字的（粗體、重點詞）是一般的
+行內元素；不該被拆開的（注音、注釋號）是 `contenteditable=false`
+的原子——看得到、整個刪得掉，但編不進去。
+
+**二、位置一律用「第幾個字」，不是 DOM 位置。** `editor/caret.ts`
+在兩者之間換算，並且**跳過 `<rt>` 與 `sup[data-fn]`**：注音和注釋號
+是標在字旁邊的記號不是內文。少扣一個，套用標記的範圍就整段位移、
+標到錯的字上。
+
+**三、量測與渲染共用同一份 HTML 與同一個 class。** 編輯區、預覽、
+檢視台、以及 `domMeasurer` 的隱形探針，全部走 `spansToHtml()` 並掛
+`.ds-rich`（樣式定義在 `GlobalStyle.ts`）。注音會撐高行高，四邊只要
+有一邊少了那段 CSS，量到的就跟畫出來的不一致，內容會被切掉。
+這跟 `blockSizing.ts` 是同一條原則。
+
+同理，`cachedMeasurer` 的快取鍵用的是 `spansToHtml()` 的結果而不是
+純文字，圖片的鍵也含 `aspectRatio` 與 `widthPct`——**任何會改變尺寸
+的欄位都必須進快取鍵**，否則改完會拿到舊高度，那一頁就被撐破。
 
 ## MVP 刻意不做的事
 
@@ -113,11 +138,18 @@ design/icons/*.svg  →  npm run icons  →  src/assets/icons.generated.ts
 | `npm run dev` | 開發伺服器 |
 | `npm run tokens` | 從 tokens.raw.txt 重新產生 token |
 | `npm run icons` | 從 design/icons 重新產生圖示模組 |
-| `npm run typecheck` | TypeScript 檢查 |
+| `npm run typecheck` | TypeScript 檢查（`tsc -b`，含 src 與 scripts） |
 | `npm run test` | 單元測試（排版引擎的正確性靠這個把關） |
 | `npm run inspect` | 引擎檢視器。餵真教材進去，把算出來的頁印成文字，不必讀測試也能看見行為 |
+| `npm run coverage <md>` | 解析器涵蓋率：每一列被辨識成什麼、有沒有東西掉進內文 |
 
 ## 目前進度
 
-D0 完成：專案骨架、token 管線、圖示管線、煙霧測試畫面。
-下一步是排版引擎（document model 與分頁），詳見 `HANDOVER.md`。
+D5 完成（145 個測試）。排版引擎、直橫排、拖曳編排、行內編輯器、
+四種主力元件與浮動膠囊都可用。
+
+接下來：D6 Pop-up（設定面板、頁面角標、學生檢視器）、D7 匯入介面與
+周邊、D8 展示用元件與交接文件。詳見 `HANDOVER.md`。
+
+**等客戶回覆才能定案的**：內容分類（`ContentCategory`）目前是暫定的
+八個值，正式清單到了只需要改那個 union，資料結構不受影響。
