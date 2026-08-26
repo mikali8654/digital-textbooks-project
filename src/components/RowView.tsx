@@ -5,6 +5,8 @@ import { Icon } from './Icon';
 import { InsertPoint } from './InsertPoint';
 import { InsertPanel } from './InsertPanel';
 import { useEditorCtx } from '../editor/EditorContext';
+import { usePopupViewer } from '../viewer/PopupViewer';
+import { PopupBadge } from './PopupBadge';
 import { COLUMN_GAP } from '../model/pageSize';
 import { makeText } from '../model/document';
 import { newId } from '../model/ids';
@@ -49,6 +51,8 @@ function blockFor(key: BlockType | 'library'): Block {
 
 export function RowView({ item, settings, contentInline, contentBlock, rowIndex }: Props) {
   const ed = useEditorCtx();
+  // 檢視器在編輯與預覽兩邊都在：老師看到的補充就是學生看到的那一個
+  const viewer = usePopupViewer();
   const vertical = settings.writingMode === 'vertical';
   const ref = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
@@ -162,6 +166,9 @@ export function RowView({ item, settings, contentInline, contentBlock, rowIndex 
                     data-block-id={b.id}
                     $selected={ed?.selectedBlockId === b.id}
                   >
+                    {b.popups.length > 0 && viewer && (
+                      <PopupBadge count={b.popups.length} onClick={() => viewer.open(b)} />
+                    )}
                     <BlockView
                       block={b}
                       settings={settings}

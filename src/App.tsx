@@ -11,6 +11,8 @@ import { PageView } from './components/PageView';
 import { PageBreak } from './components/PageBreak';
 import { EditorProvider } from './editor/EditorContext';
 import { FloatingToolbar } from './editor/FloatingToolbar';
+import { PopupPanel } from './editor/PopupPanel';
+import { PopupViewerProvider } from './viewer/PopupViewer';
 import { Icon } from './components/Icon';
 import type { Doc, DocSettings } from './model/types';
 
@@ -110,6 +112,28 @@ export function App() {
   const total = stats.hits + stats.misses;
   const page = pages[Math.min(current, pages.length - 1)];
 
+  /**
+   * 「跳到某一段」的落點。
+   *
+   * 兩種模式的意思不同：預覽是一次一頁，要換到那一段所在的頁；
+   * 編輯是連續捲動，捲到它就好。跳的目標是「某一列」不是「第幾頁」，
+   * 因為頁是算出來的，內容一改頁碼就變了。
+   */
+  const jumpToRow = useCallback(
+    (rowId: string) => {
+      const index = pages.findIndex((p) => p.items.some((i) => i.row.id === rowId));
+      if (index < 0) return;
+      if (preview) {
+        setCurrent(index);
+        return;
+      }
+      document
+        .querySelector(`[data-row-id="${CSS.escape(rowId)}"]`)
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    },
+    [pages, preview]
+  );
+
   return (
     <Layout>
       <Bar>
@@ -163,6 +187,7 @@ export function App() {
         </Preview>
       </Bar>
 
+      <PopupViewerProvider onJump={jumpToRow}>
       {preview ? (
         <PreviewStage ref={stageRef}>
           <Flip
@@ -204,8 +229,10 @@ export function App() {
             ))}
           </Stage>
           <FloatingToolbar />
+          <PopupPanel />
         </EditorProvider>
       )}
+      </PopupViewerProvider>
     </Layout>
   );
 }

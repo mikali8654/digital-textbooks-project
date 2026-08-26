@@ -20,6 +20,13 @@ export type UploadedImage = {
 export const urlOf = (assetId: string | null): string | undefined =>
   assetId ? urls.get(assetId) : undefined;
 
+/** 收下一個檔案，只給它一個 id。聲音、影片這種不需要量尺寸的走這條。 */
+export function putFile(file: File): string {
+  const assetId = `asset-${(seq += 1)}`;
+  urls.set(assetId, URL.createObjectURL(file));
+  return assetId;
+}
+
 /**
  * 收下一張圖，回傳 id 與真實比例。
  *
@@ -28,9 +35,8 @@ export const urlOf = (assetId: string | null): string | undefined =>
  */
 export function putImage(file: File): Promise<UploadedImage> {
   return new Promise((resolve, reject) => {
-    const assetId = `asset-${(seq += 1)}`;
-    const url = URL.createObjectURL(file);
-    urls.set(assetId, url);
+    const assetId = putFile(file);
+    const url = urls.get(assetId)!;
 
     const probe = new Image();
     probe.onload = () => {

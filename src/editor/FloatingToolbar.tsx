@@ -5,7 +5,7 @@ import { Icon } from '../components/Icon';
 import { useEditorCtx } from './EditorContext';
 import { findBlock } from '../model/document';
 import { sliceSpans } from '../model/spans';
-import { ROLE_LABEL } from '../model/registry';
+import { ROLE_LABEL, canHavePopup } from '../model/registry';
 import type { TextRole } from '../model/types';
 
 /**
@@ -119,6 +119,19 @@ function BlockCapsule() {
             </Btn>
           ))}
         </Group>
+      )}
+
+      {/* Pop-up 是元件的屬性不是另一種元件，所以入口在元件的膠囊上，
+          不在插入選單裡。影片／聲音／網頁本身就有互動，不能再掛 */}
+      {canHavePopup(block.type) && (
+        <Btn
+          $on={block.popups.length > 0}
+          onClick={() => ed.openPopupPanel(id)}
+          title="掛補充內容"
+        >
+          <Icon name="popup" size={20} label="補充" />
+          {block.popups.length > 0 ? `補充 ${block.popups.length}` : '補充'}
+        </Btn>
       )}
 
       <Divider />

@@ -206,7 +206,12 @@ export function applyAction(doc: Doc, action: Action): Doc {
         const popups = b.popups.slice();
         const [moved] = popups.splice(action.from, 1);
         if (!moved) return b;
-        popups.splice(action.to, 0, moved);
+        // 夾住範圍：負的 to 會被 splice 當成「從尾端數回來」，
+        // 靜靜地插到錯的位置。UI 有擋，但 reducer 是純核心，
+        // 不能靠呼叫端保證輸入正確。
+        const to = Math.max(0, Math.min(action.to, popups.length));
+        if (to === action.from) return b;
+        popups.splice(to, 0, moved);
         return { ...b, popups };
       });
 

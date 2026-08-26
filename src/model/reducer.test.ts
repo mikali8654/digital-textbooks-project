@@ -279,3 +279,49 @@ describe('patchBlock', () => {
     expect(next.rows[0].columns[0].blocks[0]).toEqual(v);
   });
 });
+
+describe('補充的排序', () => {
+  const withPopups = () => {
+    const img = image();
+    let doc = docWith(makeRow([img]));
+    for (const id of ['p1', 'p2', 'p3']) {
+      doc = applyAction(doc, {
+        type: 'addPopup', blockId: img.id, item: { id, kind: 'text', title: id, body: 'x' },
+      });
+    }
+    return { doc, id: img.id };
+  };
+  const order = (d: Doc) => d.rows[0].columns[0].blocks[0].popups.map((p) => p.id);
+
+  it('往上移一格', () => {
+    const { doc, id } = withPopups();
+    expect(order(applyAction(doc, { type: 'reorderPopups', blockId: id, from: 1, to: 0 })))
+      .toEqual(['p2', 'p1', 'p3']);
+  });
+
+  it('往下移一格', () => {
+    const { doc, id } = withPopups();
+    expect(order(applyAction(doc, { type: 'reorderPopups', blockId: id, from: 0, to: 1 })))
+      .toEqual(['p2', 'p1', 'p3']);
+  });
+
+  it('超出範圍不會把項目插到錯的位置', () => {
+    const { doc, id } = withPopups();
+    // 負的 to 若直接交給 splice，會被當成「從尾端數回來」
+    expect(order(applyAction(doc, { type: 'reorderPopups', blockId: id, from: 0, to: -5 })))
+      .toEqual(['p1', 'p2', 'p3']);
+    expect(order(applyAction(doc, { type: 'reorderPopups', blockId: id, from: 0, to: 99 })))
+      .toEqual(['p2', 'p3', 'p1']);
+  });
+
+  it('原地不動不佔一次復原', () => {
+    const { doc, id } = withPopups();
+    expect(applyAction(doc, { type: 'reorderPopups', blockId: id, from: 1, to: 1 })).toBe(doc);
+  });
+
+  it('排序不會弄丟任何一項', () => {
+    const { doc, id } = withPopups();
+    const moved = applyAction(doc, { type: 'reorderPopups', blockId: id, from: 2, to: 0 });
+    expect(order(moved).slice().sort()).toEqual(['p1', 'p2', 'p3']);
+  });
+});
