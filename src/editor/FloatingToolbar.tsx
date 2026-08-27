@@ -101,10 +101,23 @@ function BlockCapsule() {
 
       {block.type === 'image' && (
         <Group>
+          {/*
+            還沒選過尺寸時多一格「預設」並且亮著，選過之後它就消失。
+
+            這一格存在是因為 widthPct 沒設定不等於滿版：沒設定時系統會把
+            圖縮到不超過頁面的 45%，否則 4:3 的頁面插一張 3:2 的圖就用掉
+            整頁，老師沒辦法圖文混排。以前這裡用 `widthPct ?? 100` 判斷，
+            於是剛插入的圖片會亮著「滿版」但畫出來是縮過的——介面在說謊。
+          */}
+          {block.widthPct == null && (
+            <Btn $on title="還沒選尺寸。系統會縮到不佔滿一頁，選一個就以你的為準">
+              預設
+            </Btn>
+          )}
           {IMAGE_WIDTHS.map((w) => (
             <Btn
               key={w.pct}
-              $on={(block.widthPct ?? 100) === w.pct}
+              $on={block.widthPct === w.pct}
               onClick={() =>
                 ed.dispatch({
                   type: 'patchBlock',

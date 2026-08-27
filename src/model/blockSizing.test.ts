@@ -62,3 +62,32 @@ describe('區塊尺寸是量測與渲染的唯一來源', () => {
     expect(box.inlineSize).toBe(CTX.inlineSize / 2);
   });
 });
+
+describe('沒設定尺寸不等於滿版', () => {
+  const ctx = { inlineSize: 896, maxBlockSize: 640, vertical: false };
+  const img = (widthPct?: number): ImageBlock => ({
+    id: 'b', type: 'image', assetId: null, alt: '', caption: '',
+    aspectRatio: 1.5, widthPct, popups: [],
+  });
+
+  it('沒設定時會縮到不超過頁面的 45%', () => {
+    // 否則 4:3 的頁面插一張 3:2 的圖就用掉整頁，老師沒辦法圖文混排
+    const box = blockBox(img(), ctx)!;
+    expect(box.blockSize).toBeLessThanOrEqual(ctx.maxBlockSize * 0.45 + 0.5);
+    expect(box.inlineSize).toBeLessThan(ctx.inlineSize);
+  });
+
+  it('選了滿版就真的滿版，不再受那個上限約束', () => {
+    // 膠囊上亮著「滿版」而畫出來是縮過的，就是介面在說謊
+    const box = blockBox(img(100), ctx)!;
+    expect(Math.round(box.inlineSize)).toBe(ctx.inlineSize);
+    expect(box.blockSize).toBeGreaterThan(ctx.maxBlockSize * 0.45);
+  });
+
+  it('選過的尺寸就是實際佔的比例', () => {
+    for (const pct of [35, 50, 70]) {
+      const box = blockBox(img(pct), ctx)!;
+      expect(Math.round((box.inlineSize / ctx.inlineSize) * 100)).toBe(pct);
+    }
+  });
+});

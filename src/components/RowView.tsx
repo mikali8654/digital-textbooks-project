@@ -29,7 +29,9 @@ function blockFor(key: BlockType | 'library'): Block {
     case 'text':
       return makeText('', 'body');
     case 'image':
-      return { id, type: 'image', assetId: null, alt: '', caption: '', aspectRatio: 1.5, popups: [] };
+      // 明確給一個尺寸，不要留在「沒設定」的隱含狀態——老師插進來就
+      // 看得到膠囊上亮著哪一格，畫出來的也就是那一格
+      return { id, type: 'image', assetId: null, alt: '', caption: '', aspectRatio: 1.5, widthPct: 50, popups: [] };
     case 'video':
       return { id, type: 'video', source: 'upload', ref: '', title: '', popups: [] };
     case 'audio':
@@ -43,7 +45,7 @@ function blockFor(key: BlockType | 'library'): Block {
     // 媒體庫不是元件，是挑素材的入口——挑完會變成圖片或影音。
     // MVP 是演出，先放一個圖片佔位。
     case 'library':
-      return { id, type: 'image', assetId: null, alt: '', caption: '', aspectRatio: 1.5, popups: [] };
+      return { id, type: 'image', assetId: null, alt: '', caption: '', aspectRatio: 1.5, widthPct: 50, popups: [] };
     default:
       return { id, type: 'module', moduleKind: null, popups: [] };
   }
