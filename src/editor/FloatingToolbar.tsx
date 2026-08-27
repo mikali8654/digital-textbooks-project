@@ -82,7 +82,17 @@ function BlockCapsule() {
   const { block, row } = hit;
 
   return (
-    <Capsule style={anchor(rect)} onPointerDown={(e) => e.preventDefault()}>
+    <Capsule
+      style={anchor(rect)}
+      /*
+        按膠囊時不要讓編輯區失去游標——但下拉選單要例外。
+        preventDefault 會一併擋掉原生 <select> 的展開（它是靠
+        pointerdown 的預設行為打開的），結果整個角色選單點不開。
+      */
+      onPointerDown={(e) => {
+        if (!(e.target as HTMLElement).closest('select')) e.preventDefault();
+      }}
+    >
       {block.type === 'text' && (
         <Select
           value={block.role}
