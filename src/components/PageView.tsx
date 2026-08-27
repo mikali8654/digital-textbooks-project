@@ -11,6 +11,8 @@ type Props = {
   scale: number;
   /** 這一列在 doc.rows 裡的位置。插入與拖曳都要用它。唯讀時不傳。 */
   rowIndexOf?: (rowId: string) => number;
+  /** 全文共幾列。最後一列要多畫一個「加在結尾」的插入點。 */
+  rowCount?: number;
 };
 
 /**
@@ -19,7 +21,7 @@ type Props = {
  * 頁面本身永遠是固定尺寸，靠 transform 等比縮放——
  * 不是重新排版。所以任何螢幕上看到的都是同一份分頁結果。
  */
-export function PageView({ page, settings, scale, rowIndexOf }: Props) {
+export function PageView({ page, settings, scale, rowIndexOf, rowCount = 0 }: Props) {
   const size = PAGE_SIZE[settings.aspectRatio];
   const vertical = settings.writingMode === 'vertical';
   const box = contentBox(settings);
@@ -46,6 +48,7 @@ export function PageView({ page, settings, scale, rowIndexOf }: Props) {
             contentInline={contentInline}
             contentBlock={contentBlock}
             rowIndex={rowIndexOf ? rowIndexOf(item.row.id) : -1}
+            rowCount={rowCount}
           />
         ))}
       </Sheet>

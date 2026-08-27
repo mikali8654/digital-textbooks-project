@@ -225,6 +225,7 @@ export function App() {
                   settings={doc.settings}
                   scale={scale}
                   rowIndexOf={rowIndexOf}
+                  rowCount={doc.rows.length}
                 />
               </PageSlot>
             ))}

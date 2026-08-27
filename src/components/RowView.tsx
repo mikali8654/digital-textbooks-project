@@ -20,6 +20,8 @@ type Props = {
   contentBlock: number;
   /** 這一列在 doc.rows 裡的位置。插入與拖曳都要用它。 */
   rowIndex: number;
+  /** 全文共幾列。只為了知道自己是不是最後一列。 */
+  rowCount: number;
 };
 
 /** 插入選單選了之後要產生什麼。真正的內容由使用者接著填。 */
@@ -51,7 +53,14 @@ function blockFor(key: BlockType | 'library'): Block {
   }
 }
 
-export function RowView({ item, settings, contentInline, contentBlock, rowIndex }: Props) {
+export function RowView({
+  item,
+  settings,
+  contentInline,
+  contentBlock,
+  rowIndex,
+  rowCount,
+}: Props) {
   const ed = useEditorCtx();
   // 檢視器在編輯與預覽兩邊都在：老師看到的補充就是學生看到的那一個
   const viewer = usePopupViewer();
@@ -68,8 +77,18 @@ export function RowView({ item, settings, contentInline, contentBlock, rowIndex 
     ed?.dropTarget?.mode === 'column' && ed.dropTarget.rowId === row.id
       ? ed.dropTarget.side
       : null;
-  const dropAbove = ed?.dropTarget?.mode === 'row' && ed.dropTarget.index === rowIndex;
-  const dropBelow = ed?.dropTarget?.mode === 'row' && ed.dropTarget.index === rowIndex + 1;
+  /**
+   * 被切到下一頁的段落，在兩頁上各畫一次，而且兩份的 rowIndex 相同。
+   *
+   * 所以「插在這一列之前」只能由**起點那一份**負責，「插在之後」只能由
+   * **結尾那一份**負責——否則同一個插入點會在上下兩頁同時展開，
+   * 而且中間那一份的位置根本不對：它的上緣是接續處，不是列的開頭。
+   */
+  const isStart = !item.continuedFromPrev;
+  const isEnd = !item.continuesOnNext;
+
+  const dropAbove = isStart && ed?.dropTarget?.mode === 'row' && ed.dropTarget.index === rowIndex;
+  const dropBelow = isEnd && ed?.dropTarget?.mode === 'row' && ed.dropTarget.index === rowIndex + 1;
 
   const dragging = ed?.draggingRowId === row.id;
 
@@ -81,13 +100,13 @@ export function RowView({ item, settings, contentInline, contentBlock, rowIndex 
       {dropBelow && <DropLine $where="end" />}
 
       {/* 插入點：安靜不常駐，滑過才浮現 */}
-      {ed && !ed.draggingRowId && (
+      {ed && isStart && !ed.draggingRowId && (
         <InsertPoint
           open={ed.insertAt === rowIndex}
           onOpen={() => ed.openInsert(ed.insertAt === rowIndex ? null : rowIndex)}
         />
       )}
-      {ed?.insertAt === rowIndex && (
+      {ed?.insertAt === rowIndex && isStart && (
         <PanelAnchor>
           <InsertPanel
             onClose={() => ed.openInsert(null)}
@@ -225,6 +244,29 @@ export function RowView({ item, settings, contentInline, contentBlock, rowIndex 
 
         {item.continuesOnNext && <Continues $end>接下頁</Continues>}
       </Frame>
+
+      {/*
+        全文最後面的插入點。
+        插入點都畫在列的「之前」，所以沒有這一個的話，課文結尾就再也
+        加不了東西——老師只能插在最後一列之前，再把它拖下去。
+      */}
+      {ed && isEnd && rowIndex === rowCount - 1 && !ed.draggingRowId && (
+        <InsertPoint
+          open={ed.insertAt === rowCount}
+          onOpen={() => ed.openInsert(ed.insertAt === rowCount ? null : rowCount)}
+        />
+      )}
+      {ed?.insertAt === rowCount && isEnd && rowIndex === rowCount - 1 && (
+        <PanelAnchor>
+          <InsertPanel
+            onClose={() => ed.openInsert(null)}
+            onPick={(key) => {
+              ed.dispatch({ type: 'insertRow', index: rowCount, blocks: [blockFor(key)] });
+              ed.openInsert(null);
+            }}
+          />
+        </PanelAnchor>
+      )}
     </Slot>
   );
 }
