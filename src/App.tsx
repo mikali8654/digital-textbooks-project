@@ -14,38 +14,33 @@ import { FloatingToolbar } from './editor/FloatingToolbar';
 import { PopupPanel } from './editor/PopupPanel';
 import { PopupViewerProvider } from './viewer/PopupViewer';
 import { Icon } from './components/Icon';
+import { PageRail } from './components/PageRail';
+import { ImportDialog } from './editor/ImportDialog';
+import { BookSettings } from './editor/BookSettings';
 import type { Doc, DocSettings } from './model/types';
 
-const SOURCES = {
-  社會: shehuiMd,
-  國文: guowenMd,
-} as const;
+/** 內建範例，讓人不必先準備檔案就能看見結果。 */
+const SAMPLES: Record<string, string> = {
+  '社會 U4-L1': shehuiMd,
+  '國文 L07': guowenMd,
+};
 
-type Subject = keyof typeof SOURCES | '空白';
-
-const load = (key: Subject): Doc =>
-  key === '空白'
-    ? emptyDoc()
-    : applyImport(emptyDoc(), parseMarkdown(SOURCES[key], { autoPageBreak: true }));
+const firstDoc = (): Doc =>
+  applyImport(emptyDoc(), parseMarkdown(shehuiMd, { autoPageBreak: true }));
 
 export function App() {
-  const [subject, setSubject] = useState<Subject>('社會');
   const [preview, setPreview] = useState(false);
   const [current, setCurrent] = useState(0);
+  const [importing, setImporting] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const editor = useEditor(load('社會'));
-  const { doc, dispatch, replaceDoc, undo, redo, canUndo, canRedo } = editor;
+  const editor = useEditor(firstDoc());
+  const { doc, dispatch, undo, redo, canUndo, canRedo } = editor;
   const rowIndexOf = useCallback(
     (rowId: string) => doc.rows.findIndex((r) => r.id === rowId),
     [doc.rows]
   );
   const { pages, stats } = usePages(doc);
-
-  const switchTo = (s: Subject) => {
-    setSubject(s);
-    replaceDoc(load(s));
-    setCurrent(0);
-  };
 
   const patch = (p: Partial<DocSettings>) => dispatch({ type: 'setSettings', patch: p });
 
@@ -134,16 +129,23 @@ export function App() {
     [pages, preview]
   );
 
+  /** 編輯模式是連續捲動的，縮圖列點下去就是捲到那一頁。 */
+  const scrollToPage = useCallback((index: number) => {
+    document
+      .querySelector(`[data-page-index="${index}"]`)
+      ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, []);
+
   return (
     <Layout>
       <Bar>
-        <Group>
-          {(['社會', '國文', '空白'] as Subject[]).map((s) => (
-            <Toggle key={s} $on={s === subject} onClick={() => switchTo(s)}>
-              {s}
-            </Toggle>
-          ))}
-        </Group>
+        {/* 教材名稱直接在頂部列上編，不用進設定——它是最常改的一項 */}
+        <Title
+          value={doc.title}
+          onChange={(e) => dispatch({ type: 'setTitle', title: e.target.value })}
+          placeholder="未命名教材"
+          aria-label="教材名稱"
+        />
 
         <Group>
           <Round onClick={undo} disabled={!canUndo} title="復原">
@@ -154,32 +156,22 @@ export function App() {
           </Round>
         </Group>
 
-        <Group>
-          <Toggle $on={!vertical} onClick={() => patch({ writingMode: 'horizontal' })}>
-            橫排
-          </Toggle>
-          <Toggle $on={vertical} onClick={() => patch({ writingMode: 'vertical' })}>
-            直排
-          </Toggle>
-        </Group>
-        <Group>
-          {(['4:3', '16:9'] as const).map((r) => (
-            <Toggle key={r} $on={doc.settings.aspectRatio === r} onClick={() => patch({ aspectRatio: r })}>
-              {r}
-            </Toggle>
-          ))}
-        </Group>
-        <Group>
-          {(['sm', 'md', 'lg'] as const).map((t) => (
-            <Toggle key={t} $on={doc.settings.textScale === t} onClick={() => patch({ textScale: t })}>
-              字級 {t}
-            </Toggle>
-          ))}
-        </Group>
+        <Spacer />
 
-        <Stats>
-          {pages.length} 頁 · 快取命中 {total ? Math.round((stats.hits / total) * 100) : 0}%
+        <Stats title={`量測快取命中率 ${total ? Math.round((stats.hits / total) * 100) : 0}%`}>
+          {pages.length} 頁
         </Stats>
+
+        <Group>
+          <Toggle $on={importing} onClick={() => setImporting(true)}>
+            <Icon name="upload" size={20} />
+            匯入
+          </Toggle>
+          <Toggle $on={settingsOpen} onClick={() => setSettingsOpen((v) => !v)}>
+            <Icon name="settings" size={20} />
+            設定
+          </Toggle>
+        </Group>
 
         <Preview $on={preview} onClick={() => setPreview((p) => !p)}>
           {preview ? '離開預覽' : '預覽'}
@@ -188,6 +180,15 @@ export function App() {
       </Bar>
 
       <PopupViewerProvider onJump={jumpToRow}>
+      <Main>
+        {/* 縮圖列在預覽時也在：老師講課時要能跳到某一頁 */}
+        <PageRail
+          doc={doc}
+          pages={pages}
+          current={preview ? current : -1}
+          onGoPage={(i) => (preview ? setCurrent(i) : scrollToPage(i))}
+          onGoRow={jumpToRow}
+        />
       {preview ? (
         <PreviewStage ref={stageRef}>
           <Flip
@@ -232,7 +233,31 @@ export function App() {
           <PopupPanel />
         </EditorProvider>
       )}
+      </Main>
       </PopupViewerProvider>
+
+      {importing && (
+        <ImportDialog
+          samples={SAMPLES}
+          onClose={() => setImporting(false)}
+          onApply={(result) => {
+            // 走 dispatch 而不是 replaceDoc，匯入才退得回去——
+            // 老師匯錯檔案不該是不可逆的
+            dispatch({ type: 'importDoc', result });
+            setCurrent(0);
+            setImporting(false);
+          }}
+        />
+      )}
+
+      {settingsOpen && (
+        <BookSettings
+          doc={doc}
+          onPatch={patch}
+          onTitle={(title) => dispatch({ type: 'setTitle', title })}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
     </Layout>
   );
 }
@@ -245,21 +270,58 @@ const Layout = styled.div`
 
 const Bar = styled.header`
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: ${(p) => p.theme.space.gapLg};
+  flex: none;
+  gap: ${(p) => p.theme.space.gapMd};
+  /* 每一顆按鈕都不准被壓到換行——「匯 入」兩個字分兩行看起來像壞掉。
+     要讓步的是教材名稱，它本來就會用刪節號收尾。 */
+  & > *:not(:first-child) { flex: none; white-space: nowrap; }
   padding: ${(p) => p.theme.space.insetSm} ${(p) => p.theme.space.insetLg};
   background: ${(p) => p.theme.surface.raised};
   border-block-end: ${(p) => p.theme.border.widthDefault} solid ${(p) => p.theme.border.subtle};
+`;
+
+const Main = styled.div`
+  flex: 1;
+  min-block-size: 0;
+  display: flex;
+`;
+
+const Spacer = styled.span`
+  flex: 1;
+`;
+
+const Title = styled.input`
+  font: inherit;
+  font-size: var(--ds-typography-body-lg-size);
+  font-weight: 600;
+  flex: 0 1 auto;
+  min-inline-size: 3ch;
+  max-inline-size: 320px;
+  height: ${(p) => p.theme.control.heightSm};
+  /* 文字不要頂到自己的邊，否則看起來像黏在旁邊的按鈕上 */
+  padding: 0 ${(p) => p.theme.space.insetSm};
+  text-overflow: ellipsis;
+  border: ${(p) => p.theme.border.widthDefault} solid transparent;
+  border-radius: ${(p) => p.theme.radius.control};
+  background: transparent;
+  color: ${(p) => p.theme.text.primary};
+
+  &:hover { border-color: ${(p) => p.theme.border.subtle}; }
+  &:focus { border-color: ${(p) => p.theme.border.accent}; outline: none; }
 `;
 
 const Group = styled.div`
   display: flex;
   gap: ${(p) => p.theme.space.gapXs};
   align-items: center;
+  flex: none;
 `;
 
 const Toggle = styled.button<{ $on: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   height: ${(p) => p.theme.control.heightSm};
   padding: 0 ${(p) => p.theme.space.insetSm};
   border-radius: ${(p) => p.theme.radius.control};

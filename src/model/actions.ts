@@ -1,3 +1,4 @@
+import type { ImportResult } from './markdown';
 import type {
   AudioBlock,
   Block,
@@ -44,6 +45,13 @@ export type Action =
   | { type: 'setTitle'; title: string }
   | { type: 'setSettings'; patch: Partial<DocSettings> }
   | { type: 'insertRow'; index: number; blocks: Block[] }
+  /**
+   * 匯入一份 md 的解析結果。
+   *
+   * 走 reducer 而不是直接換掉整份文件，匯入才會進復原堆疊——
+   * 老師匯錯檔案時能一鍵退回，不必重編一課。
+   */
+  | { type: 'importDoc'; result: ImportResult }
   | { type: 'deleteRow'; rowId: string }
   | { type: 'moveRow'; rowId: string; target: DropTarget }
   /**

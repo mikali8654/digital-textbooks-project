@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { applyAction } from './reducer';
 import { emptyDoc, makeRow, makeText, textOf } from './document';
+import { parseMarkdown } from './markdown';
 import { newId, resetIds } from './ids';
 import type { Doc, ImageBlock, TextBlock, VideoBlock } from './types';
 
@@ -323,5 +324,54 @@ describe('補充的排序', () => {
     const { doc, id } = withPopups();
     const moved = applyAction(doc, { type: 'reorderPopups', blockId: id, from: 2, to: 0 });
     expect(order(moved).slice().sort()).toEqual(['p1', 'p2', 'p3']);
+  });
+});
+
+describe('匯入', () => {
+  // 格式照真實教材：frontmatter 的 key 是英文，區塊之間空一行
+  const md = [
+    '---',
+    'title: 測試課',
+    'direction: 直排',
+    'publisher: 測試出版社',
+    '---',
+    '',
+    '# 測試課',
+    '',
+    '這是一段內文。',
+    '',
+    '## 第一節',
+    '',
+  ].join('\n');
+
+  it('走 reducer，所以匯入退得回去', () => {
+    // 直接換掉整份文件的話，老師匯錯檔案就得重編一課
+    const before = docWith(makeRow([makeText('原本的內容')]));
+    const after = applyAction(before, {
+      type: 'importDoc',
+      result: parseMarkdown(md, { autoPageBreak: true }),
+    });
+    expect(textOf(after.rows[0].columns[0].blocks[0])).toBe('測試課');
+    // 純函式：原本那份沒被動到，undo 拿回來的是完整的舊狀態
+    expect(textOf(before.rows[0].columns[0].blocks[0])).toBe('原本的內容');
+  });
+
+  it('標題與排版設定一起帶進來', () => {
+    const after = applyAction(emptyDoc(), {
+      type: 'importDoc',
+      result: parseMarkdown(md, { autoPageBreak: true }),
+    });
+    expect(after.title).toBe('測試課');
+    expect(after.settings.writingMode).toBe('vertical');
+    expect(after.meta.publisher).toBe('測試出版社');
+  });
+
+  it('沒帶到的設定沿用原本的，不會被重設', () => {
+    const doc: Doc = { ...emptyDoc(), settings: { ...emptyDoc().settings, textScale: 'lg' } };
+    const after = applyAction(doc, {
+      type: 'importDoc',
+      result: parseMarkdown(md, { autoPageBreak: true }),
+    });
+    expect(after.settings.textScale).toBe('lg');
   });
 });

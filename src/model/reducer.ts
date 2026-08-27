@@ -3,6 +3,7 @@ import { newId } from './ids';
 import type { Action, DropTarget } from './actions';
 import type { Block, Column, Doc, Row } from './types';
 import { mergeSpans, sliceSpans, spliceSpans } from './spans';
+import { applyImport } from './markdown';
 
 /** 同一列的欄寬總和恆為 100。 */
 function normalizeWidths(columns: Column[]): Column[] {
@@ -153,6 +154,9 @@ export function applyAction(doc: Doc, action: Action): Doc {
         ),
       };
     }
+
+    case 'importDoc':
+      return applyImport(doc, action.result);
 
     case 'setText':
       return mapBlock(doc, action.blockId, (b) =>

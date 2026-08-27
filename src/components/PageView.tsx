@@ -28,7 +28,10 @@ export function PageView({ page, settings, scale, rowIndexOf }: Props) {
   const contentBlock = vertical ? box.width : box.height;
 
   return (
-    <Frame style={{ width: size.width * scale, height: size.height * scale }}>
+    <Frame
+      data-page-index={page.index}
+      style={{ width: size.width * scale, height: size.height * scale }}
+    >
       <Sheet
         $vertical={vertical}
         data-vertical={vertical || undefined}
