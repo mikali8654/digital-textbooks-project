@@ -61,7 +61,20 @@ export function WebBlockView({ block, boxStyle, onPatch, onSelect }: Props) {
         >
           {block.title}
         </Title>
-        <Url>{host}</Url>
+        {/* 網址也要能改。只能改標題的話，插進來的網頁書籤指不到任何地方 */}
+        {onPatch ? (
+          <UrlInput
+            defaultValue={block.url}
+            placeholder="貼上網址"
+            onPointerDown={(e) => e.stopPropagation()}
+            onBlur={(e) => onPatch({ url: e.target.value.trim() })}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+            }}
+          />
+        ) : (
+          <Url>{host}</Url>
+        )}
       </Body>
     </Card>
   );
@@ -146,4 +159,20 @@ const QrBox = styled.div`
   border-radius: ${(p) => p.theme.radius.field};
   background: ${(p) => p.theme.surface.sunken};
   flex: none;
+`;
+
+const UrlInput = styled.input`
+  font: inherit;
+  font-family: var(--ds-typography-font-display);
+  font-size: var(--ds-typography-label-size);
+  inline-size: 100%;
+  min-block-size: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: ${(p) => p.theme.text.tertiary};
+  writing-mode: horizontal-tb;
+
+  &::placeholder { color: ${(p) => p.theme.text.placeholder}; }
+  &:focus { outline: none; color: ${(p) => p.theme.text.primary}; }
 `;
