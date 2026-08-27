@@ -31,15 +31,20 @@ export function usePages(doc: Doc): { pages: Page[]; stats: CachedMeasurer['stat
     // fontsReady 進相依：字型換了要重建，舊的量測值不能留
   }, [writingMode, textScale, fontsReady]);
 
+  /**
+   * 換掉的量測器要收掉，正在用的不能收。
+   *
+   * 原本的清理函式寫成 `return () => measurer.dispose()`，看起來是在
+   * 卸載時收尾，但 effect 每次重跑都會先執行清理——StrictMode 的
+   * mount → cleanup → mount 就把當下正在用的那一個拔掉了。
+   * 量測器本身現在會自己重新掛回文件，這裡只負責換掉時清舊的。
+   */
   const prev = useRef(measurer);
   useEffect(() => {
     if (prev.current !== measurer) {
       prev.current.dispose();
       prev.current = measurer;
     }
-    return () => {
-      measurer.dispose();
-    };
   }, [measurer]);
 
   const pages = useMemo(() => {

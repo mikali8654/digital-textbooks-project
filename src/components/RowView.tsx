@@ -97,10 +97,16 @@ export function RowView({ item, settings, contentInline, contentBlock, rowIndex 
         </PanelAnchor>
       )}
 
+      {/*
+        識別屬性只有可編輯時才掛。縮圖列與預覽畫的是同一個 RowView，
+        若兩邊都掛，整份文件就會有兩組同樣的 id；而縮圖列在 DOM 裡排在
+        前面，document.querySelector 會先找到縮圖那一份——浮動膠囊、
+        捲到某一頁、跳到某一段全部會指到左邊那條 180px 的縮圖上。
+      */}
       <Frame
         ref={frameRef}
-        data-row-id={row.id}
-        data-row-index={rowIndex}
+        data-row-id={ed ? row.id : undefined}
+        data-row-index={ed ? rowIndex : undefined}
         $selected={selected}
         style={{ marginBlockStart: item.gapBefore }}
         onPointerDown={() => {
@@ -143,7 +149,7 @@ export function RowView({ item, settings, contentInline, contentBlock, rowIndex 
             return (
               <ColumnWrap
                 key={col.id}
-                data-col-id={col.id}
+                data-col-id={ed ? col.id : undefined}
                 style={{ flexBasis: `${col.widthPct}%` }}
               >
                 {/* 多欄時每一欄各有握把，否則併起來就拆不開了 */}
@@ -163,7 +169,7 @@ export function RowView({ item, settings, contentInline, contentBlock, rowIndex 
                 {col.blocks.map((b) => (
                   <BlockShell
                     key={b.id}
-                    data-block-id={b.id}
+                    data-block-id={ed ? b.id : undefined}
                     $selected={ed?.selectedBlockId === b.id}
                   >
                     {b.popups.length > 0 && viewer && (

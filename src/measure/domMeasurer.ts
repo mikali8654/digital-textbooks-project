@@ -40,6 +40,21 @@ export function createDomMeasurer(opts: DomMeasurerOptions): DomMeasurer {
   ].join(';');
   host.appendChild(stage);
 
+  /**
+   * 確保探針還在文件裡。
+   *
+   * 離開文件的元素量出來的每一個尺寸都是 0，而 0 會被當成「放得下」，
+   * 於是所有內容都不切頁、整份文件的頁數只剩下標題的換頁在撐，
+   * 畫面上則是內容直接溢出頁面——而且錯的 0 還會被寫進量測快取。
+   *
+   * 探針之所以會離開文件，是因為 dispose() 可能在還要繼續用的時候被呼叫
+   * （React 的 StrictMode 會 mount → cleanup → mount 跑一次）。與其要求
+   * 每個呼叫端都不要提早 dispose，不如讓量測本身自己保證前提成立。
+   */
+  const ensureAttached = () => {
+    if (!stage.isConnected) host.appendChild(stage);
+  };
+
   const probe = document.createElement('div');
   probe.style.writingMode = vertical ? 'vertical-rl' : 'horizontal-tb';
   // 跟編輯區與預覽同一個 class：注音撐高的行高在這裡也要算進去，
@@ -54,6 +69,7 @@ export function createDomMeasurer(opts: DomMeasurerOptions): DomMeasurer {
     vertical ? rect.width : rect.height;
 
   function layoutText(block: TextBlock, inlineSize: number) {
+    ensureAttached();
     const s = roleStyle(block.role, scale);
     probe.style.fontSize = s.fontSize;
     probe.style.lineHeight = s.lineHeight;
@@ -76,8 +92,12 @@ export function createDomMeasurer(opts: DomMeasurerOptions): DomMeasurer {
     blockSize(block: Block, inlineSize: number, maxBlockSize: number): number {
       if (block.type === 'text') {
         const el = layoutText(block, inlineSize);
-        return Math.min(blockAxis(el.getBoundingClientRect()), maxBlockSize);
+        // 不夾在一頁之內。夾住的話，一段比整頁還長的課文會量成
+        // 「剛好等於一頁」，分頁器就認為它放得下，整段塞進去然後溢出，
+        // 而且永遠不會觸發切頁。放不下要由 paginate 決定怎麼處理。
+        return blockAxis(el.getBoundingClientRect());
       }
+      ensureAttached();
       // 非文字區塊走共用的尺寸規則——渲染端用的是同一個函式，
       // 所以量到的一定等於畫出來的。
       const box = blockBox(block, { inlineSize, maxBlockSize, vertical });
@@ -91,7 +111,7 @@ export function createDomMeasurer(opts: DomMeasurerOptions): DomMeasurer {
           inlineSize
         );
         const captionSize = blockAxis(caption.getBoundingClientRect());
-        return Math.min(box.blockSize + GAP.attached + captionSize, maxBlockSize);
+        return box.blockSize + GAP.attached + captionSize;
       }
       return box.blockSize;
     },

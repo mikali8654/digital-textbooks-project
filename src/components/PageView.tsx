@@ -28,8 +28,9 @@ export function PageView({ page, settings, scale, rowIndexOf }: Props) {
   const contentBlock = vertical ? box.width : box.height;
 
   return (
+    // 只有可編輯的那一份掛頁碼，否則縮圖列會先被 querySelector 找到
     <Frame
-      data-page-index={page.index}
+      data-page-index={rowIndexOf ? page.index : undefined}
       style={{ width: size.width * scale, height: size.height * scale }}
     >
       <Sheet
