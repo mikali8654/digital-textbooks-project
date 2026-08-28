@@ -102,6 +102,7 @@ export function RowView({
       {/* 插入點：安靜不常駐，滑過才浮現 */}
       {ed && isStart && !ed.draggingRowId && (
         <InsertPoint
+          vertical={vertical}
           open={ed.insertAt === rowIndex}
           onOpen={() => ed.openInsert(ed.insertAt === rowIndex ? null : rowIndex)}
         />
@@ -252,6 +253,8 @@ export function RowView({
       */}
       {ed && isEnd && rowIndex === rowCount - 1 && !ed.draggingRowId && (
         <InsertPoint
+          vertical={vertical}
+          where="end"
           open={ed.insertAt === rowCount}
           onOpen={() => ed.openInsert(ed.insertAt === rowCount ? null : rowCount)}
         />
