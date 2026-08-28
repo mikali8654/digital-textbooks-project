@@ -1,10 +1,12 @@
 import styled from 'styled-components';
-import { TABLE_ROW } from '../../model/blockSizing';
+import { TABLE_ROW, tableOverflow, type SizingContext } from '../../model/blockSizing';
 import type { TableBlock } from '../../model/types';
 
 type Props = {
   block: TableBlock;
   boxStyle?: React.CSSProperties;
+  /** 跟量測用的是同一組尺寸，用來判斷有沒有列放不下。 */
+  sizing: SizingContext;
   onSelect?: () => void;
 };
 
@@ -19,8 +21,13 @@ type Props = {
  * ⚠️ 每一格只有一行，過長會截斷不會換行。要支援換行必須讓量測器真的
  * 去量表格（見 HANDOVER 的已知限制）——目前的教材裡表格都是短的數值格。
  */
-export function TableBlockView({ block, boxStyle, onSelect }: Props) {
+export function TableBlockView({ block, boxStyle, sizing, onSelect }: Props) {
   const [head, ...body] = block.cells;
+  // 比一頁還高的表格只能截斷（切一半的表格在下一頁沒有表頭，看不懂），
+  // 但一定要說出來——少幾列而沒人發現，學生看到的就是缺資料的課本
+  const over = tableOverflow(block, sizing);
+  const rows = block.hasHeader ? body : block.cells;
+  const shown = over ? rows.slice(0, over.shown) : rows;
 
   return (
     <Wrap style={boxStyle} onPointerDown={onSelect}>
@@ -35,7 +42,7 @@ export function TableBlockView({ block, boxStyle, onSelect }: Props) {
           </thead>
         )}
         <tbody>
-          {(block.hasHeader ? body : block.cells).map((row, r) => (
+          {shown.map((row, r) => (
             <tr key={r}>
               {Array.from({ length: block.cols }, (_, c) => (
                 <td key={c}>{row[c] ?? ''}</td>
@@ -44,6 +51,11 @@ export function TableBlockView({ block, boxStyle, onSelect }: Props) {
           ))}
         </tbody>
       </Grid>
+      {over && (
+        <Cut>
+          還有 {over.hidden} 列放不下這一頁。表格不能跨頁，請拆成兩個表格。
+        </Cut>
+      )}
     </Wrap>
   );
 }
@@ -85,4 +97,13 @@ const Grid = styled.table<{ $cols: number }>`
   tr:last-child td {
     border-block-end: none;
   }
+`;
+
+const Cut = styled.div`
+  display: flex;
+  align-items: center;
+  block-size: ${TABLE_ROW}px;
+  padding: 0 10px;
+  font-size: var(--ds-typography-label-size);
+  color: ${(p) => p.theme.feedback.warningDefault};
 `;

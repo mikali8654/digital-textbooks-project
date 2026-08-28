@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blockBox } from './blockSizing';
+import { blockBox, tableOverflow } from './blockSizing';
 import { newId } from './ids';
 import type { ImageBlock, TableBlock, TextBlock } from './types';
 
@@ -89,5 +89,42 @@ describe('沒設定尺寸不等於滿版', () => {
       const box = blockBox(img(pct), ctx)!;
       expect(Math.round((box.inlineSize / ctx.inlineSize) * 100)).toBe(pct);
     }
+  });
+});
+
+describe('比一頁還高的表格', () => {
+  const ctx = { inlineSize: 896, maxBlockSize: 640, vertical: false };
+  const table = (rows: number): TableBlock => ({
+    id: 't', type: 'table', rows, cols: 2,
+    cells: Array.from({ length: rows }, (_, i) => [String(i), 'x']),
+    hasHeader: true, popups: [],
+  });
+
+  it('放得下就不回報', () => {
+    // 社會第一張表是 11 列
+    expect(tableOverflow(table(11), ctx)).toBeNull();
+  });
+
+  it('放不下要說出來，不能靜靜切掉', () => {
+    // 資料表格少了幾列而沒人發現，學生看到的就是一份缺資料的課本
+    const over = tableOverflow(table(25), ctx)!;
+    expect(over).not.toBeNull();
+    expect(over.shown + over.hidden).toBe(25);
+    expect(over.hidden).toBeGreaterThan(0);
+  });
+
+  it('提示自己也要有位置，所以顯示的列數比裝得下的少一列', () => {
+    const fits = Math.floor((ctx.maxBlockSize - 32) / 36);
+    expect(tableOverflow(table(fits + 1), ctx)!.shown).toBe(fits - 1);
+  });
+
+  it('至少留一列，不會變成空表', () => {
+    expect(tableOverflow(table(99), { ...ctx, maxBlockSize: 60 })!.shown).toBeGreaterThanOrEqual(1);
+  });
+
+  it('直排看的是另一軸', () => {
+    // 直排時表格的列數吃的是 inline 軸（垂直），不是 block 軸
+    const v = { inlineSize: 200, maxBlockSize: 896, vertical: true };
+    expect(tableOverflow(table(11), v)).not.toBeNull();
   });
 });

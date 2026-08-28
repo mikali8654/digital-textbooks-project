@@ -126,7 +126,9 @@ export function BlockView({
         </Card>
       );
     case 'table':
-      return <TableBlockView block={block} boxStyle={boxStyle} onSelect={onSelect} />;
+      return (
+        <TableBlockView block={block} boxStyle={boxStyle} sizing={sizing} onSelect={onSelect} />
+      );
     case 'audio':
       return (
         <AudioBlockView block={block} boxStyle={boxStyle} onPatch={onPatch} onSelect={onSelect} />

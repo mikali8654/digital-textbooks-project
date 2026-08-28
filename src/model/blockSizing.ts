@@ -43,7 +43,28 @@ const FIXED: Record<string, number> = {
  */
 export const TABLE_ROW = 36;
 export const TABLE_COL = 160;
-const TABLE_PAD = 16;
+export const TABLE_PAD = 16;
+
+/**
+ * 一頁裝得下這張表的前幾列。
+ *
+ * 表格切不開（一半的表格在另一頁上沒有表頭，看不懂），所以比一頁還高的
+ * 表格只能截斷。但**截斷必須說出來**——資料表格靜靜少了幾列，老師不會
+ * 發現，學生看到的就是一份缺資料的課本。
+ *
+ * 回傳 null 代表整張都放得下。
+ */
+export function tableOverflow(
+  block: { rows: number },
+  ctx: SizingContext
+): { shown: number; hidden: number } | null {
+  const room = ctx.vertical ? ctx.inlineSize : ctx.maxBlockSize;
+  const fits = Math.floor((room - TABLE_PAD * 2) / TABLE_ROW);
+  if (block.rows <= fits) return null;
+  // 留一列的位置放提示，否則提示自己又會被切掉
+  const shown = Math.max(1, fits - 1);
+  return { shown, hidden: block.rows - shown };
+}
 
 export type SizingContext = {
   /** 該欄的 inline 尺寸（橫排＝寬，直排＝高）。 */
