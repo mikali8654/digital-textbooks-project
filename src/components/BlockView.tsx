@@ -6,6 +6,10 @@ import { EditableText } from './EditableText';
 import { ImageBlockView } from './blocks/ImageBlockView';
 import { VideoBlockView } from './blocks/VideoBlockView';
 import { WebBlockView } from './blocks/WebBlockView';
+import { TableBlockView } from './blocks/TableBlockView';
+import { AudioBlockView } from './blocks/AudioBlockView';
+import { ModuleBlockView } from './blocks/ModuleBlockView';
+import { ShapeBlockView } from './blocks/ShapeBlockView';
 import type { BlockPatch } from '../model/actions';
 import type { Block, DocSettings, InlineSpan } from '../model/types';
 
@@ -122,15 +126,23 @@ export function BlockView({
         </Card>
       );
     case 'table':
+      return <TableBlockView block={block} boxStyle={boxStyle} onSelect={onSelect} />;
+    case 'audio':
       return (
-        <Card onPointerDown={onSelect}>
-          <Tag>表格 {block.rows}×{block.cols}</Tag>
-        </Card>
+        <AudioBlockView block={block} boxStyle={boxStyle} onPatch={onPatch} onSelect={onSelect} />
       );
+    case 'module':
+      return <ModuleBlockView block={block} boxStyle={boxStyle} onSelect={onSelect} />;
+    case 'shape':
+      return <ShapeBlockView block={block} boxStyle={boxStyle} onSelect={onSelect} />;
     case 'reference':
       return <Ref onPointerDown={onSelect}>配合{block.target}第 {block.pages} 頁</Ref>;
-    default:
-      return <Card onPointerDown={onSelect}><Tag>{block.type}</Tag></Card>;
+    default: {
+      // 十一種元件都畫過了。之後在 Block union 加一種卻忘了在這裡處理，
+      // 這一行會編譯失敗——不會等到畫面上出現一個空白方塊才發現。
+      const never: never = block;
+      return never;
+    }
   }
 }
 

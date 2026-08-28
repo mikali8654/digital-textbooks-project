@@ -25,13 +25,25 @@ const MAX_SHARE_OF_PAGE = 0.45;
 const FIXED: Record<string, number> = {
   audio: 64,
   shape: 120,
-  table: 180,
   web: 112,
   dialogue: 88,
   reference: 40,
   module: 200,
   question: 220,
 };
+
+/**
+ * 表格的一格有多大。
+ *
+ * 表格不能用固定高度：社會第一張表有 11 列，用固定的 180 會量少一半，
+ * 畫出來就撐破頁面。列數是資料的一部分，所以尺寸要從列數算。
+ *
+ * ⚠️ 前提是每一格只有一行。儲存格過長會被截斷，不會換行——要支援換行
+ * 就得讓量測器真的去量表格，見 HANDOVER 的已知限制。
+ */
+export const TABLE_ROW = 36;
+export const TABLE_COL = 160;
+const TABLE_PAD = 16;
 
 export type SizingContext = {
   /** 該欄的 inline 尺寸（橫排＝寬，直排＝高）。 */
@@ -84,6 +96,16 @@ export function blockBox(
       inlineSize: Math.min(inlineSize, wanted),
       blockSize,
     };
+  }
+
+  if (block.type === 'table') {
+    const across = block.rows * TABLE_ROW + TABLE_PAD * 2;
+    const along = block.cols * TABLE_COL + TABLE_PAD * 2;
+    // 表格永遠是橫著的格線，所以直排時它佔的是一條垂直的帶子：
+    // block 軸（水平）由欄數決定，inline 軸（垂直）由列數決定。
+    return ctx.vertical
+      ? { inlineSize: Math.min(across, ctx.inlineSize), blockSize: Math.min(along, ctx.maxBlockSize) }
+      : { inlineSize: ctx.inlineSize, blockSize: Math.min(across, ctx.maxBlockSize) };
   }
 
   return {

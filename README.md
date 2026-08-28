@@ -13,6 +13,8 @@ npm run dev
 
 開啟 http://localhost:5173
 
+一開啟載入的是社會 U4-L1 的示範內容。按「匯入」可以換成國文 L07 或你自己的 md。
+
 ## 指令
 
 | 指令 | 用途 |
@@ -24,6 +26,8 @@ npm run dev
 | `npm run tokens` | 從 `design/tokens.raw.txt` 重新產生設計 token |
 | `npm run icons` | 從 `design/icons/` 重新產生圖示模組 |
 | `npm run inspect` | 把真的教材內容餵進排版引擎，把算出來的頁印出來 |
+| `npm run coverage <md>` | 解析器涵蓋率：哪些構造被認出來、有沒有東西掉進內文 |
+| `npm run lint` | oxlint |
 
 ## 專案結構
 
@@ -42,9 +46,16 @@ src/
 
 ## 接手前先讀
 
-- **`CLAUDE.md`** — 架構的核心規則。「內容是流、頁是算出來的」這一條決定了其他所有設計，
-  違反它的改動一定會出問題。
-- **`THIRD-PARTY.md`** — 圖示的來源與授權。
+依這個順序：
+
+1. **`HANDOVER.md`** — 交接說明。這是什麼、哪些是真的哪些是假的、加一種新元件怎麼做、
+   已知限制、等客戶回覆的項目。**先讀這一份。**
+2. **`CLAUDE.md`** — 動手改的時候要遵守的架構規則。「內容是流、頁是算出來的」這一條
+   決定了其他所有設計，違反它的改動一定會出問題。
+3. **`THIRD-PARTY.md`** — 圖示的來源與授權。
+
+`design/sample-shehui.md` 與 `design/sample-guowen.md` 是康軒與翰林的真實課文，
+測試會讀它們。**轉公開或加外部協作者之前要先確認版權**（見 `HANDOVER.md` 第十節）。
 
 ## 技術選擇
 

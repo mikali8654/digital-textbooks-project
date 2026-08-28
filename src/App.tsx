@@ -17,6 +17,7 @@ import { Icon } from './components/Icon';
 import { PageRail } from './components/PageRail';
 import { ImportDialog } from './editor/ImportDialog';
 import { BookSettings } from './editor/BookSettings';
+import { seedDemo } from './demo/seed';
 import type { Doc, DocSettings } from './model/types';
 
 /** 內建範例，讓人不必先準備檔案就能看見結果。 */
@@ -25,8 +26,10 @@ const SAMPLES: Record<string, string> = {
   '國文 L07': guowenMd,
 };
 
+// 開啟時載入的示範內容。seedDemo 掛的補充不在 md 裡，是為了讓人一開啟
+// 就看得到 Pop-up——交接後不要這一段的話，把 seedDemo 拿掉即可。
 const firstDoc = (): Doc =>
-  applyImport(emptyDoc(), parseMarkdown(shehuiMd, { autoPageBreak: true }));
+  seedDemo(applyImport(emptyDoc(), parseMarkdown(shehuiMd, { autoPageBreak: true })));
 
 export function App() {
   const [preview, setPreview] = useState(false);

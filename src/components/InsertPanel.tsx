@@ -49,6 +49,24 @@ export function InsertPanel({ onPick, onClose }: Props) {
           </Tile>
         ))}
       </Grid>
+
+      {/*
+        AI 生成的位置先留著，但是**明白標成還沒接**，不做成看起來能按
+        的樣子。做成能按的假按鈕，老師在課堂上按下去才發現沒反應，
+        比沒有這個入口還糟。
+
+        接上去要動的只有這一顆的 onClick：呼叫哪一家的 API、模型與帳單
+        都在客戶那邊（交接時已確認不在這次的範圍）。
+      */}
+      <Slot aria-disabled="true">
+        <IconBox>
+          <Icon name="asterisk" size={24} />
+        </IconBox>
+        <SlotText>
+          <strong>AI 生成</strong>
+          <small>預留位置。接上客戶自己的 API 之後才會啟用。</small>
+        </SlotText>
+      </Slot>
     </Panel>
   );
 }
@@ -117,4 +135,25 @@ const IconBox = styled.span`
   display: grid;
   place-items: center;
   border-radius: ${(p) => p.theme.radius.field};
+`;
+
+/** 預留位置：看得出來在那裡，但看得出來還不能按。 */
+const Slot = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-block-start: ${(p) => p.theme.space.gapSm};
+  padding: 10px 12px;
+  border-block-start: ${(p) => p.theme.border.widthDefault} solid ${(p) => p.theme.border.subtle};
+  color: ${(p) => p.theme.text.disabled};
+  cursor: default;
+`;
+
+const SlotText = styled.span`
+  display: flex;
+  flex-direction: column;
+  line-height: 1.4;
+
+  strong { font-size: var(--ds-typography-body-sm-size); font-weight: 600; }
+  small { font-size: var(--ds-typography-label-size); }
 `;
