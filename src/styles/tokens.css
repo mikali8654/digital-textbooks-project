@@ -1,5 +1,5 @@
 /* 由 scripts/build-tokens.mjs 產生，請勿手動編輯。 */
-/* 來源：design/tokens.raw.txt（Figma「2. Semantic」collection，160 個變數） */
+/* 來源：design/tokens.raw.txt（Figma「2. Semantic」collection，162 個變數） */
 
 :root {
   --ds-action-accent-bg-active: #C5D154;
@@ -72,11 +72,12 @@
   --ds-control-tile-md: 56px;
   --ds-feedback-error-default: #D63020;
   --ds-feedback-error-surface: #FBE7E4;
-  --ds-feedback-info-default: #2B67B0;
-  --ds-feedback-info-surface: #E7EEF7;
+  --ds-feedback-info-default: #1A66C2;
+  --ds-feedback-info-surface: #E8F1FC;
   --ds-feedback-success-default: #1A7A4A;
   --ds-feedback-success-surface: #E4F0E9;
   --ds-feedback-warning-default: #B35C00;
+  --ds-feedback-warning-fill: #F3C11B;
   --ds-feedback-warning-surface: #FBEBDA;
   --ds-icon-accent: #5A6E00;
   --ds-icon-default: #1A1A1A;
@@ -104,6 +105,7 @@
   --ds-space-inset-xs: 8px;
   --ds-space-stack-lg: 24px;
   --ds-space-stack-md: 16px;
+  --ds-surface-accent-strong: #3F4D00;
   --ds-surface-brand: #F0FF62;
   --ds-surface-card: #E5E5E5;
   --ds-surface-disabled: #F5F5F5;

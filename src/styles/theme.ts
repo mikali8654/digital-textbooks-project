@@ -87,6 +87,7 @@ export const theme = {
     successDefault: 'var(--ds-feedback-success-default)',
     successSurface: 'var(--ds-feedback-success-surface)',
     warningDefault: 'var(--ds-feedback-warning-default)',
+    warningFill: 'var(--ds-feedback-warning-fill)',
     warningSurface: 'var(--ds-feedback-warning-surface)',
   },
   icon: {
@@ -124,6 +125,7 @@ export const theme = {
     stackMd: 'var(--ds-space-stack-md)',
   },
   surface: {
+    accentStrong: 'var(--ds-surface-accent-strong)',
     brand: 'var(--ds-surface-brand)',
     card: 'var(--ds-surface-card)',
     disabled: 'var(--ds-surface-disabled)',

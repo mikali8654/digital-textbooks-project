@@ -68,11 +68,12 @@
 --ds-control-tile-md|FLOAT|56
 --ds-feedback-error-default|COLOR|#D63020
 --ds-feedback-error-surface|COLOR|#FBE7E4
---ds-feedback-info-default|COLOR|#2B67B0
---ds-feedback-info-surface|COLOR|#E7EEF7
+--ds-feedback-info-default|COLOR|#1A66C2
+--ds-feedback-info-surface|COLOR|#E8F1FC
 --ds-feedback-success-default|COLOR|#1A7A4A
 --ds-feedback-success-surface|COLOR|#E4F0E9
 --ds-feedback-warning-default|COLOR|#B35C00
+--ds-feedback-warning-fill|COLOR|#F3C11B
 --ds-feedback-warning-surface|COLOR|#FBEBDA
 --ds-icon-accent|COLOR|#5A6E00
 --ds-icon-default|COLOR|#1A1A1A
@@ -100,6 +101,7 @@
 --ds-space-inset-xs|FLOAT|8
 --ds-space-stack-lg|FLOAT|24
 --ds-space-stack-md|FLOAT|16
+--ds-surface-accent-strong|COLOR|#3F4D00
 --ds-surface-brand|COLOR|#F0FF62
 --ds-surface-card|COLOR|#E5E5E5
 --ds-surface-disabled|COLOR|#F5F5F5
