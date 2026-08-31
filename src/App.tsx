@@ -312,7 +312,7 @@ const Title = styled.input`
   color: ${(p) => p.theme.text.primary};
 
   &:hover { border-color: ${(p) => p.theme.border.subtle}; }
-  &:focus { border-color: ${(p) => p.theme.border.accent}; outline: none; }
+  &:focus { border-color: ${(p) => p.theme.tool.border}; outline: none; }
 `;
 
 const Group = styled.div`
@@ -333,13 +333,13 @@ const Toggle = styled.button<{ $on: boolean }>`
   font-family: inherit;
   font-size: var(--ds-typography-body-sm-size);
   border: ${(p) => p.theme.border.widthDefault} solid
-    ${(p) => (p.$on ? p.theme.border.accent : p.theme.border.subtle)};
-  background: ${(p) => (p.$on ? p.theme.brand.primaryTint : p.theme.surface.raised)};
-  color: ${(p) => (p.$on ? p.theme.text.accent : p.theme.text.secondary)};
+    ${(p) => (p.$on ? p.theme.tool.border : p.theme.border.subtle)};
+  background: ${(p) => (p.$on ? p.theme.tool.surface : p.theme.surface.raised)};
+  color: ${(p) => (p.$on ? p.theme.tool.accent : p.theme.text.secondary)};
 
   &:hover:not(:disabled) {
-    border-color: ${(p) => p.theme.border.accent};
-    background: ${(p) => p.theme.brand.primaryTintSubtle};
+    border-color: ${(p) => p.theme.tool.border};
+    background: ${(p) => p.theme.tool.surfaceSubtle};
   }
 `;
 
@@ -360,8 +360,8 @@ const Round = styled.button`
     cursor: default;
   }
   &:hover:not(:disabled) {
-    border-color: ${(p) => p.theme.border.accent};
-    background: ${(p) => p.theme.brand.primaryTintSubtle};
+    border-color: ${(p) => p.theme.tool.border};
+    background: ${(p) => p.theme.tool.surfaceSubtle};
   }
 `;
 
@@ -376,7 +376,7 @@ const Preview = styled.button<{ $on: boolean }>`
   cursor: pointer;
   font-family: inherit;
   font-size: var(--ds-typography-body-sm-size);
-  background: ${(p) => (p.$on ? p.theme.brand.primary : p.theme.action.primaryBg)};
+  background: ${(p) => (p.$on ? p.theme.tool.accent : p.theme.action.primaryBg)};
   color: ${(p) => p.theme.action.primaryText};
 `;
 

@@ -206,7 +206,7 @@ const Seg = styled.button<{ $on: boolean }>`
   border: none;
   border-radius: ${(p) => p.theme.radius.control};
   background: ${(p) => (p.$on ? p.theme.surface.raised : 'transparent')};
-  color: ${(p) => (p.$on ? p.theme.text.accent : p.theme.text.secondary)};
+  color: ${(p) => (p.$on ? p.theme.tool.accent : p.theme.text.secondary)};
   box-shadow: ${(p) => (p.$on ? '0 1px 3px rgba(26, 25, 23, 0.14)' : 'none')};
 `;
 

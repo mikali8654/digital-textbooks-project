@@ -112,8 +112,8 @@ const Tab = styled.button<{ $on: boolean }>`
   cursor: pointer;
   border: none;
   border-radius: ${(p) => p.theme.radius.control};
-  background: ${(p) => (p.$on ? p.theme.brand.primaryTint : 'transparent')};
-  color: ${(p) => (p.$on ? p.theme.text.accent : p.theme.text.secondary)};
+  background: ${(p) => (p.$on ? p.theme.tool.surface : 'transparent')};
+  color: ${(p) => (p.$on ? p.theme.tool.accent : p.theme.text.secondary)};
 `;
 
 const Scroll = styled.div`
@@ -134,7 +134,7 @@ const Thumb = styled.button<{ $on: boolean }>`
   padding: 4px;
   cursor: pointer;
   border-radius: ${(p) => p.theme.radius.field};
-  background: ${(p) => (p.$on ? p.theme.brand.primaryTint : 'transparent')};
+  background: ${(p) => (p.$on ? p.theme.tool.surface : 'transparent')};
 
   &:hover { background: ${(p) => p.theme.surface.sunken}; }
 `;
@@ -174,7 +174,7 @@ const Entry = styled.button<{ $depth: number; $on: boolean }>`
   cursor: pointer;
   border: none;
   border-radius: ${(p) => p.theme.radius.control};
-  background: ${(p) => (p.$on ? p.theme.brand.primaryTint : 'transparent')};
+  background: ${(p) => (p.$on ? p.theme.tool.surface : 'transparent')};
   color: ${(p) => (p.$depth === 0 ? p.theme.text.primary : p.theme.text.secondary)};
   font-weight: ${(p) => (p.$depth === 0 ? 600 : 400)};
 

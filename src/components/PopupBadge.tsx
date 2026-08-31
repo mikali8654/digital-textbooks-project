@@ -44,14 +44,14 @@ const Badge = styled.button`
 
   border: none;
   border-radius: 999px;
-  background: ${(p) => p.theme.brand.primary};
-  color: ${(p) => p.theme.text.onBrand};
+  background: ${(p) => p.theme.tool.accent};
+  color: ${(p) => p.theme.tool.onAccent};
   box-shadow: 0 2px 8px rgba(26, 25, 23, 0.24);
   cursor: pointer;
   /* 直排時整個角標要正著看，不跟著文字轉 */
   writing-mode: horizontal-tb;
 
-  &:hover { background: ${(p) => p.theme.action.primaryBgHover}; }
+  &:hover { background: ${(p) => p.theme.tool.accentHover}; }
 
   /*
    * 看起來 32、點起來 48。

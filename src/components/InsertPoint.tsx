@@ -97,11 +97,11 @@ const Line = styled.span<{ $vertical: boolean }>`
     p.$vertical
       ? css`
           width: 0;
-          border-left: ${p.theme.border.widthSelected} solid ${p.theme.border.accent};
+          border-left: ${p.theme.border.widthSelected} solid ${p.theme.tool.border};
         `
       : css`
           height: 0;
-          border-top: ${p.theme.border.widthSelected} solid ${p.theme.border.accent};
+          border-top: ${p.theme.border.widthSelected} solid ${p.theme.tool.border};
         `}
 `;
 
@@ -112,8 +112,8 @@ const Pill = styled.span`
   gap: 4px;
   padding: 2px 10px;
   border-radius: ${(p) => p.theme.radius.control};
-  background: ${(p) => p.theme.brand.primary};
-  color: ${(p) => p.theme.text.onBrand};
+  background: ${(p) => p.theme.tool.accent};
+  color: ${(p) => p.theme.tool.onAccent};
   font-size: var(--ds-typography-label-size);
   line-height: var(--ds-typography-label-line-height);
 `;

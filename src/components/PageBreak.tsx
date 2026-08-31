@@ -42,7 +42,7 @@ const Line = styled.div<{ $manual: boolean }>`
   flex: 1;
   height: 0;
   border-block-start: ${(p) => (p.$manual ? '2px solid' : '1.5px dashed')}
-    ${(p) => (p.$manual ? p.theme.border.accent : p.theme.border.default)};
+    ${(p) => (p.$manual ? p.theme.tool.border : p.theme.border.default)};
 `;
 
 const Label = styled.button<{ $manual: boolean }>`
@@ -54,7 +54,7 @@ const Label = styled.button<{ $manual: boolean }>`
   letter-spacing: 0.06em;
   padding: 4px 12px;
   border-radius: ${(p) => p.theme.radius.control};
-  color: ${(p) => (p.$manual ? p.theme.text.accent : p.theme.text.tertiary)};
-  background: ${(p) => (p.$manual ? p.theme.brand.primaryTint : p.theme.surface.sunken)};
+  color: ${(p) => (p.$manual ? p.theme.tool.accent : p.theme.text.tertiary)};
+  background: ${(p) => (p.$manual ? p.theme.tool.surface : p.theme.surface.sunken)};
   cursor: ${(p) => (p.disabled ? 'default' : 'pointer')};
 `;

@@ -289,11 +289,11 @@ const Btn = styled.button<{ $on?: boolean }>`
   padding: 6px 12px;
   min-block-size: 36px;
   font: inherit;
-  background: ${(p) => (p.$on ? p.theme.brand.primaryTint : 'transparent')};
-  color: ${(p) => (p.$on ? p.theme.text.accent : p.theme.text.secondary)};
+  background: ${(p) => (p.$on ? p.theme.tool.surface : 'transparent')};
+  color: ${(p) => (p.$on ? p.theme.tool.accent : p.theme.text.secondary)};
 
   &:hover {
-    background: ${(p) => (p.$on ? p.theme.brand.primaryTint : p.theme.surface.sunken)};
+    background: ${(p) => (p.$on ? p.theme.tool.surface : p.theme.surface.sunken)};
   }
 `;
 
