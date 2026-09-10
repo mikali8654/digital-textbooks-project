@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
+import demoMd from '../design/sample-demo.md?raw';
 import shehuiMd from '../design/sample-shehui.md?raw';
 import guowenMd from '../design/sample-guowen.md?raw';
 import { applyImport, parseMarkdown } from './model/markdown';
@@ -20,8 +21,18 @@ import { BookSettings } from './editor/BookSettings';
 import { seedDemo } from './demo/seed';
 import type { Doc, DocSettings } from './model/types';
 
-/** 內建範例，讓人不必先準備檔案就能看見結果。 */
+/**
+ * 內建範例，讓人不必先準備檔案就能看見結果。
+ *
+ * 「自然（範例）」是自製的，13 種 md 構造各用一次，沒有版權問題。
+ * 另外兩份是康軒與翰林的真實課文——它們的價值在於證明系統扛得住真的
+ * 複雜度（21 張圖、30 條注釋、直排題組），但不能隨程式碼對外散布。
+ *
+ * 要做成可對外的版本：刪掉那兩個 md、拿掉這裡的兩行與上面的兩個 import，
+ * 並把 firstDoc 改成載入 demoMd。測試會自動略過對應的段落，不會失敗。
+ */
 const SAMPLES: Record<string, string> = {
+  '自然（範例）': demoMd,
   '社會 U4-L1': shehuiMd,
   '國文 L07': guowenMd,
 };

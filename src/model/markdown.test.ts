@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { parseMarkdown } from './markdown';
 import { plainOf } from './inline';
 import { resetIds } from './ids';
@@ -171,8 +171,79 @@ describe('表格', () => {
   });
 });
 
-describe('拿真的社會課本檢驗', () => {
-  const r = parseMarkdown(readFileSync('design/sample-shehui.md', 'utf8'), { autoPageBreak: true });
+describe('自製範例：13 種構造各用一次', () => {
+  // 這一份是自製的，沒有版權問題，所以永遠會被執行。
+  // 它的職責是「每一種構造都還認得」，不是「扛得住真實複雜度」。
+  const r = parseMarkdown(readFileSync('design/sample-demo.md', 'utf8'), { autoPageBreak: true });
+  const all = blocks(r);
+  const count = (t: Block['type']) => all.filter((b) => b.type === t).length;
+  const spans = all.flatMap((b) => (b.type === 'text' ? (b as TextBlock).spans : []));
+
+  it('沒有任何一行掉進內文，也沒有跳過的', () => {
+    expect(r.unrecognized).toEqual([]);
+    expect(r.skipped).toEqual([]);
+  });
+
+  it('每一種區塊型別都出現過', () => {
+    for (const t of ['image', 'dialogue', 'table', 'reference', 'web', 'audio', 'video', 'module', 'question'] as Block['type'][]) {
+      expect({ type: t, n: count(t) }).toMatchObject({ n: expect.any(Number) });
+      expect(count(t)).toBeGreaterThan(0);
+    }
+  });
+
+  it('四層標題都在', () => {
+    const roles = all.filter((b) => b.type === 'text').map((b) => (b as TextBlock).role);
+    for (const r2 of ['lessonTitle', 'sectionTitle', 'itemTitle', 'subItemTitle']) {
+      expect(roles).toContain(r2);
+    }
+  });
+
+  it('行內三種標記都解析出來', () => {
+    expect(spans.filter((s2) => s2.keyword).map((s2) => s2.text)).toContain('星座');
+    expect(spans.find((s2) => s2.ruby)).toMatchObject({ text: '閑', ruby: 'ㄒㄧㄢˊ' });
+    expect(spans.filter((s2) => s2.footnoteRef).map((s2) => s2.footnoteRef)).toEqual(['1', '2']);
+  });
+
+  it('注釋收進文件層，詞與內容分開存', () => {
+    expect(r.footnotes).toHaveLength(2);
+    expect(r.footnotes[0]).toMatchObject({ id: '1', term: 'Vega' });
+  });
+
+  it('frontmatter 的書目資料進 meta', () => {
+    expect(r.meta).toMatchObject({ publisher: '範例', subject: '自然', printPageRange: [40, 47] });
+  });
+
+  it('紙本頁碼是錨點', () => {
+    expect(r.rows.filter((x) => x.printPage).map((x) => x.printPage)).toEqual([40, 41, 42, 43, 44]);
+  });
+
+  it('題目的選項是結構化的', () => {
+    const q = all.find((b) => b.type === 'question');
+    expect(q && q.type === 'question' && q.options.map((o) => o.key)).toEqual(['A', 'B', 'C', 'D']);
+  });
+});
+
+/**
+ * 出版社的真實課文只存在於客戶的版本裡。
+ *
+ * 這兩份是康軒與翰林的教材，不能隨程式碼對外散布。拿掉之後這裡自動略過，
+ * 其餘測試照常跑——所以同一份程式碼可以有「含真實教材」與「可對外」
+ * 兩種發行版，不需要維護兩套測試。
+ *
+ * 真實教材的價值在於它證明解析器扛得住真的複雜度（21 張圖、30 條注釋、
+ * 直排、題組），那是自製範例做不到的，所以有檔案時一定要跑。
+ */
+const hasReal = (f: string) => existsSync(f);
+/**
+ * 檔案不在時回傳空字串而不是丟例外。
+ *
+ * vitest 即使整個 describe 被略過，仍然會執行它的內容來建立測試樹——
+ * 所以這裡的讀取一定會跑到，不能讓它爆掉。裡面的測試本來就不會執行。
+ */
+const readReal = (f: string) => (existsSync(f) ? readFileSync(f, 'utf8') : '');
+
+describe.skipIf(!hasReal('design/sample-shehui.md'))('拿真的社會課本檢驗', () => {
+  const r = parseMarkdown(readReal('design/sample-shehui.md'), { autoPageBreak: true });
 
   it('每一種構造都有對應的區塊，沒有東西掉進內文', () => {
     const count = (t: Block['type']) => blocks(r).filter((b) => b.type === t).length;
@@ -209,10 +280,8 @@ describe('拿真的社會課本檢驗', () => {
   });
 });
 
-describe('國文：直排、題目、模組', () => {
-  const r = parseMarkdown(readFileSync('design/sample-guowen.md', 'utf8'), {
-    autoPageBreak: true,
-  });
+describe.skipIf(!hasReal('design/sample-guowen.md'))('國文：直排、題目、模組', () => {
+  const r = parseMarkdown(readReal('design/sample-guowen.md'), { autoPageBreak: true });
   const blocks = r.rows.flatMap((row) => row.columns.flatMap((c) => c.blocks));
 
   it('frontmatter 的直排會設定到書寫方向', () => {
