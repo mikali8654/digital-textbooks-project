@@ -1,10 +1,33 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-Hant-TW">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>v1-textbook-editor</title>
+
+    <!--
+      設計系統指定的兩支字型。
+
+      沒有引入的話，Mac 會退回 PingFang TC 看起來正常，但 Windows 與
+      Android 平板會換成另一套字，行高與字距都不同——而老師學生用的
+      正是平板。PingFang TC 是 Apple 系統字，不可嵌入散布，只能當
+      fallback，不能當交付的依據。
+
+      字重取設計 token 實際用到的：內文 400、標籤與導言 500、
+      小標 600、標題 700。多載一個字重就多一份下載，不要順手加。
+
+      ⚠️ 正式上線要考慮改成自架：目前依賴 Google Fonts 的可用性，
+      而且第一次載入前會有一小段時間看到 fallback 字（已用
+      display=swap 讓文字先出現，不要等字型）。
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=Space+Grotesk:wght@400;500&display=swap"
+    />
+
+    <title>數位教科書 · 自編編輯器</title>
   </head>
   <body>
     <div id="root"></div>

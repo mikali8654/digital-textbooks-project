@@ -159,7 +159,7 @@ const EditableTextStyled = styled(EditableText)`
   outline: none;
 
   &:focus-visible {
-    outline: ${(p) => p.theme.border.widthSelected} solid ${(p) => p.theme.border.accent};
+    outline: ${(p) => p.theme.border.widthSelected} solid ${(p) => p.theme.tool.border};
     outline-offset: 4px;
     border-radius: 2px;
   }
@@ -205,8 +205,8 @@ const Card = styled.div`
 
 const Tag = styled.span`
   align-self: flex-start;
-  background: ${(p) => p.theme.brand.primaryTint};
-  color: ${(p) => p.theme.text.accent};
+  background: ${(p) => p.theme.tool.surface};
+  color: ${(p) => p.theme.tool.accent};
   border-radius: ${(p) => p.theme.radius.control};
   padding: 2px 10px;
   font-size: var(--ds-typography-label-size);

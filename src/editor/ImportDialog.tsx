@@ -228,7 +228,7 @@ const Primary = styled.button`
   background: transparent;
   color: ${(p) => p.theme.text.secondary};
 
-  &:hover { border-color: ${(p) => p.theme.border.accent}; color: ${(p) => p.theme.text.accent}; }
+  &:hover { border-color: ${(p) => p.theme.tool.border}; color: ${(p) => p.theme.tool.accent}; }
 `;
 
 const Or = styled.span`
@@ -254,7 +254,7 @@ const Sample = styled.button`
   background: transparent;
   color: ${(p) => p.theme.text.secondary};
 
-  &:hover { border-color: ${(p) => p.theme.border.accent}; color: ${(p) => p.theme.text.accent}; }
+  &:hover { border-color: ${(p) => p.theme.tool.border}; color: ${(p) => p.theme.tool.accent}; }
 `;
 
 const Report = styled.div`

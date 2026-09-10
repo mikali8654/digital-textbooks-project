@@ -420,9 +420,9 @@ const Pick = styled.button<{ $done: boolean }>`
   border-radius: ${(p) => p.theme.radius.field};
   border: ${(p) => p.theme.border.widthDefault}
     ${(p) => (p.$done ? 'solid' : 'dashed')}
-    ${(p) => (p.$done ? p.theme.border.accent : p.theme.border.default)};
+    ${(p) => (p.$done ? p.theme.tool.border : p.theme.border.default)};
   background: transparent;
-  color: ${(p) => (p.$done ? p.theme.text.accent : p.theme.text.secondary)};
+  color: ${(p) => (p.$done ? p.theme.tool.accent : p.theme.text.secondary)};
 `;
 
 const AddBar = styled.div`
@@ -457,8 +457,8 @@ const Add = styled.button`
   color: ${(p) => p.theme.text.secondary};
 
   &:hover {
-    border-color: ${(p) => p.theme.border.accent};
-    color: ${(p) => p.theme.text.accent};
+    border-color: ${(p) => p.theme.tool.border};
+    color: ${(p) => p.theme.tool.accent};
   }
 `;
 

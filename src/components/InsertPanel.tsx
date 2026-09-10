@@ -122,12 +122,12 @@ const Tile = styled.button`
 
   /* hover 用最淺的一階，選中才用深的——選中必須比 hover 明顯 */
   &:hover {
-    border-color: ${(p) => p.theme.border.accent};
-    background: ${(p) => p.theme.brand.primaryTintSubtle};
+    border-color: ${(p) => p.theme.tool.border};
+    background: ${(p) => p.theme.tool.surfaceSubtle};
   }
   &:active {
     border-width: ${(p) => p.theme.border.widthSelected};
-    background: ${(p) => p.theme.brand.primaryTint};
+    background: ${(p) => p.theme.tool.surface};
   }
 `;
 

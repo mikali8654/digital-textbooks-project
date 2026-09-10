@@ -15,6 +15,14 @@ export const GlobalStyle = createGlobalStyle`
     -webkit-font-smoothing: antialiased;
   }
 
+  /*
+   * 表單元素不繼承字體。瀏覽器給它們自己的預設字（Mac 上是 Arial）與
+   * 13.33px，中文因此掉回系統字。縮圖、評論卡片、圖片替代文字、徽章
+   * 都包在 <button> 裡才能點，少了這行，那些地方的字體和字級就跟
+   * 畫布對不起來——同一份內容在縮圖裡和在頁面上長得不一樣。
+   */
+  button, input, select, textarea { font: inherit; }
+
   /* 只有鍵盤操作才顯示 focus 環，滑鼠點擊不觸發 */
   :focus-visible {
     outline: ${(p) => p.theme.border.widthFocus} solid ${(p) => p.theme.action.ghostFocusRing};

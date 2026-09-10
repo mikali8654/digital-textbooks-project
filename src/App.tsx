@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
+import demoMd from '../design/sample-demo.md?raw';
 import shehuiMd from '../design/sample-shehui.md?raw';
 import guowenMd from '../design/sample-guowen.md?raw';
 import { applyImport, parseMarkdown } from './model/markdown';
@@ -20,8 +21,18 @@ import { BookSettings } from './editor/BookSettings';
 import { seedDemo } from './demo/seed';
 import type { Doc, DocSettings } from './model/types';
 
-/** 內建範例，讓人不必先準備檔案就能看見結果。 */
+/**
+ * 內建範例，讓人不必先準備檔案就能看見結果。
+ *
+ * 「自然（範例）」是自製的，13 種 md 構造各用一次，沒有版權問題。
+ * 另外兩份是康軒與翰林的真實課文——它們的價值在於證明系統扛得住真的
+ * 複雜度（21 張圖、30 條注釋、直排題組），但不能隨程式碼對外散布。
+ *
+ * 要做成可對外的版本：刪掉那兩個 md、拿掉這裡的兩行與上面的兩個 import，
+ * 並把 firstDoc 改成載入 demoMd。測試會自動略過對應的段落，不會失敗。
+ */
 const SAMPLES: Record<string, string> = {
+  '自然（範例）': demoMd,
   '社會 U4-L1': shehuiMd,
   '國文 L07': guowenMd,
 };
@@ -312,7 +323,7 @@ const Title = styled.input`
   color: ${(p) => p.theme.text.primary};
 
   &:hover { border-color: ${(p) => p.theme.border.subtle}; }
-  &:focus { border-color: ${(p) => p.theme.border.accent}; outline: none; }
+  &:focus { border-color: ${(p) => p.theme.tool.border}; outline: none; }
 `;
 
 const Group = styled.div`
@@ -333,13 +344,13 @@ const Toggle = styled.button<{ $on: boolean }>`
   font-family: inherit;
   font-size: var(--ds-typography-body-sm-size);
   border: ${(p) => p.theme.border.widthDefault} solid
-    ${(p) => (p.$on ? p.theme.border.accent : p.theme.border.subtle)};
-  background: ${(p) => (p.$on ? p.theme.brand.primaryTint : p.theme.surface.raised)};
-  color: ${(p) => (p.$on ? p.theme.text.accent : p.theme.text.secondary)};
+    ${(p) => (p.$on ? p.theme.tool.border : p.theme.border.subtle)};
+  background: ${(p) => (p.$on ? p.theme.tool.surface : p.theme.surface.raised)};
+  color: ${(p) => (p.$on ? p.theme.tool.accent : p.theme.text.secondary)};
 
   &:hover:not(:disabled) {
-    border-color: ${(p) => p.theme.border.accent};
-    background: ${(p) => p.theme.brand.primaryTintSubtle};
+    border-color: ${(p) => p.theme.tool.border};
+    background: ${(p) => p.theme.tool.surfaceSubtle};
   }
 `;
 
@@ -360,8 +371,8 @@ const Round = styled.button`
     cursor: default;
   }
   &:hover:not(:disabled) {
-    border-color: ${(p) => p.theme.border.accent};
-    background: ${(p) => p.theme.brand.primaryTintSubtle};
+    border-color: ${(p) => p.theme.tool.border};
+    background: ${(p) => p.theme.tool.surfaceSubtle};
   }
 `;
 
@@ -376,7 +387,7 @@ const Preview = styled.button<{ $on: boolean }>`
   cursor: pointer;
   font-family: inherit;
   font-size: var(--ds-typography-body-sm-size);
-  background: ${(p) => (p.$on ? p.theme.brand.primary : p.theme.action.primaryBg)};
+  background: ${(p) => (p.$on ? p.theme.tool.accent : p.theme.action.primaryBg)};
   color: ${(p) => p.theme.action.primaryText};
 `;
 

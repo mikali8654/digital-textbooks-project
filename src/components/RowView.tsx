@@ -361,7 +361,7 @@ const Frame = styled.div<{ $selected: boolean }>`
 
   outline: ${(p) =>
     p.$selected
-      ? `${p.theme.border.widthSelected} solid ${p.theme.border.accent}`
+      ? `${p.theme.border.widthSelected} solid ${p.theme.tool.border}`
       : 'none'};
   outline-offset: 8px;
   border-radius: 2px;
@@ -390,8 +390,8 @@ const Grip = styled.div`
     opacity: 1;
   }
   &:hover {
-    border-color: ${(p) => p.theme.border.accent};
-    color: ${(p) => p.theme.icon.accent};
+    border-color: ${(p) => p.theme.tool.border};
+    color: ${(p) => p.theme.tool.accent};
   }
   &:active {
     cursor: grabbing;
@@ -410,7 +410,7 @@ const DropLine = styled.div<{ $where: 'start' | 'end' }>`
   block-size: 3px;
   z-index: 12;
   border-radius: 999px;
-  background: ${(p) => p.theme.brand.primary};
+  background: ${(p) => p.theme.tool.accent};
   writing-mode: horizontal-tb;
 
   &::before,
@@ -421,7 +421,7 @@ const DropLine = styled.div<{ $where: 'start' | 'end' }>`
     inline-size: 9px;
     block-size: 9px;
     border-radius: 999px;
-    background: ${(p) => p.theme.brand.primary};
+    background: ${(p) => p.theme.tool.accent};
   }
   &::before { inset-inline-start: -4px; }
   &::after { inset-inline-end: -4px; }
@@ -438,11 +438,11 @@ const SideDrop = styled.div<{ $side: 'start' | 'end'; $active: boolean }>`
   place-items: center;
   writing-mode: horizontal-tb;
   font-size: var(--ds-typography-label-size);
-  color: ${(p) => (p.$active ? p.theme.text.accent : 'transparent')};
+  color: ${(p) => (p.$active ? p.theme.tool.accent : 'transparent')};
   border: ${(p) => (p.$active ? p.theme.border.widthSelected : '0')} dashed
-    ${(p) => p.theme.border.accent};
+    ${(p) => p.theme.tool.border};
   border-radius: ${(p) => p.theme.radius.tile};
-  background: ${(p) => (p.$active ? p.theme.brand.primaryTintSubtle : 'transparent')};
+  background: ${(p) => (p.$active ? p.theme.tool.surfaceSubtle : 'transparent')};
 `;
 
 const Columns = styled.div`
@@ -471,8 +471,8 @@ const ColGrip = styled.div`
 
   &:hover {
     opacity: 1;
-    border-color: ${(p) => p.theme.border.accent};
-    color: ${(p) => p.theme.icon.accent};
+    border-color: ${(p) => p.theme.tool.border};
+    color: ${(p) => p.theme.tool.accent};
   }
   &:active { cursor: grabbing; }
 `;
@@ -501,7 +501,7 @@ const Handle = styled.div<{ $vertical: boolean }>`
     position: absolute;
     inset-block: 0;
     inline-size: 2px;
-    background: ${(p) => p.theme.border.accent};
+    background: ${(p) => p.theme.tool.border};
   }
   &:hover,
   &:active {
@@ -543,7 +543,7 @@ const BlockShell = styled.div<{ $selected?: boolean }>`
   border-radius: 4px;
   outline: ${(p) =>
     p.$selected
-      ? `${p.theme.border.widthSelected} solid ${p.theme.border.accent}`
+      ? `${p.theme.border.widthSelected} solid ${p.theme.tool.border}`
       : 'none'};
   outline-offset: 4px;
 `;

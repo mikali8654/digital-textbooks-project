@@ -173,6 +173,9 @@ design/
   含圖頁面的分頁高度是估的
 - **上傳的檔案重新整理就沒了**（見第四節）
 - 設計系統目前**沒有遮罩（scrim）的 token**，檢視器與對話框的半透明背景是寫死的
+- **字型目前從 Google Fonts 載入**（`index.html`）。正式上線要考慮自架：
+  現在依賴 Google 的可用性，而且第一次載入前會短暫看到 fallback 字。
+  注意 PingFang TC 是 Apple 系統字、不可嵌入散布，只能當 fallback
 
 ## 九、等客戶回覆才能定案
 
@@ -182,9 +185,33 @@ design/
 - 九種文字角色的命名是否符合他們內部的說法
 - 《設計指引》第十章是否存在（目前手上的版本沒有）
 
-## 十、版權注意
+## 十、版權與「可對外版本」
 
-`design/sample-shehui.md` 與 `design/sample-guowen.md` 是**康軒與翰林的真實課文**
-（社會 U4-L1、國文 L07）。測試會直接讀這兩個檔驗證解析器涵蓋率。
+範例教材分成兩種，職責不同：
 
-**這個 repo 目前是 private。轉公開或加外部協作者之前，這兩個檔要先確認版權。**
+| 檔案 | 來源 | 職責 |
+|---|---|---|
+| `design/sample-demo.md` | **自製**，無版權問題 | 13 種 md 構造各用一次。證明「每一種構造都還認得」 |
+| `design/sample-shehui.md` | 康軒 社會 U4-L1 | 證明扛得住真實複雜度：21 張圖、7 段對話、3 張表 |
+| `design/sample-guowen.md` | 翰林 國文 L07 | 直排、30 條注釋、5 題題組、互動模組 |
+
+真實課文**不能隨程式碼對外散布**。所以測試寫成了「檔案不在就自動略過」：
+
+```bash
+# 含真實教材
+npm run test   # 190 passed
+
+# 拿掉那兩個檔之後
+npm run test   # 178 passed, 12 skipped，零失敗
+```
+
+**同一份程式碼支援兩種發行版，不需要維護兩套測試。**
+
+### 做成可對外版本的四個步驟
+
+1. 刪掉 `design/sample-shehui.md` 與 `design/sample-guowen.md`
+2. `src/App.tsx`：拿掉那兩個 `?raw` import 與 `SAMPLES` 裡的兩行
+3. 同檔的 `firstDoc()` 改成載入 `demoMd`
+4. `npm run test` 確認略過而不是失敗
+
+做完之後 repo 就能轉公開、或交給外部協作者。
