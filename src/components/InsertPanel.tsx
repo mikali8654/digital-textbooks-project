@@ -1,3 +1,5 @@
+import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import styled from 'styled-components';
 import { Icon } from './Icon';
 import { blockRegistry } from '../model/registry';
@@ -23,7 +25,59 @@ const LABEL = (k: BlockType | 'library') =>
 type Props = {
   onPick: (key: BlockType | 'library') => void;
   onClose: () => void;
+  /** 插入點在畫面上的位置。面板貼著它出現。 */
+  anchorRef: RefObject<HTMLElement | null>;
+  /** 教材是不是直排。決定面板往哪一邊展開。 */
+  vertical: boolean;
 };
+
+/** 面板寬度。高度不寫死——內容改了就會不準，要當場量。 */
+const PANEL_INLINE = 340;
+const EDGE = 12;
+
+/**
+ * 面板要出現在哪裡。
+ *
+ * 用視窗座標而不是頁面座標，原因有兩個：
+ *
+ * 一、頁面是 overflow: hidden 的固定畫布，面板留在裡面會被裁掉——
+ *     直排時被右緣裁（因為版面由右往左流），橫排時點最下面那一列會被下緣裁。
+ * 二、頁面是整頁等比縮放的，面板留在裡面會跟著縮，字變小、觸控目標變小。
+ *
+ * 展開方向跟著書寫方向走：橫排往下、直排往左（因為直排的下一段在左邊）。
+ * 一律用實體屬性判斷，不用 inset-inline 那類邏輯屬性——這個元件為了讓
+ * 選單文字正著看而設了 horizontal-tb，邏輯屬性算的會是它自己的方向，
+ * 直排時就會被推到頁面外。
+ */
+function place(anchor: DOMRect, panel: DOMRect, vertical: boolean): React.CSSProperties {
+  // 頂部的界線取工具列的下緣，不是視窗頂端——面板蓋住工具列的話，
+  // 面板開著的時候就按不到預覽與設定
+  const top0 = (document.querySelector('header')?.getBoundingClientRect().bottom ?? 0) + EDGE;
+  const clampX = (v: number, half: number) =>
+    Math.min(Math.max(v, half + EDGE), window.innerWidth - half - EDGE);
+  const clampY = (v: number, half: number) =>
+    Math.min(Math.max(v, half + top0), window.innerHeight - half - EDGE);
+
+  if (vertical) {
+    const top = clampY(anchor.top + anchor.height / 2, panel.height / 2);
+    // 左邊塞不下就翻到右邊
+    const openLeft = anchor.left > panel.width + EDGE * 2;
+    return {
+      top,
+      left: openLeft ? anchor.left - EDGE : anchor.right + EDGE,
+      transform: openLeft ? 'translate(-100%, -50%)' : 'translate(0, -50%)',
+    };
+  }
+
+  const left = clampX(anchor.left + anchor.width / 2, panel.width / 2);
+  // 下面塞不下就翻到上面；翻上去還是會蓋到工具列的話，就維持往下並貼齊下緣
+  const openDown = anchor.bottom + panel.height + EDGE < window.innerHeight;
+  if (openDown) return { left, top: anchor.bottom + EDGE, transform: 'translate(-50%, 0)' };
+  const up = anchor.top - EDGE - panel.height;
+  return up >= top0
+    ? { left, top: anchor.top - EDGE, transform: 'translate(-50%, -100%)' }
+    : { left, top: window.innerHeight - EDGE, transform: 'translate(-50%, -100%)' };
+}
 
 /**
  * 插入面板：九格一次呈現，無搜尋、無捲動。
@@ -31,11 +85,32 @@ type Props = {
  * 這是「面板」那一類——只做「加新東西」。它以浮層覆蓋在內容之上，
  * 不推動下方內容，否則按下插入點時整頁會跳動。
  */
-export function InsertPanel({ onPick, onClose }: Props) {
-  return (
+export function InsertPanel({ onPick, onClose, anchorRef, vertical }: Props) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  // 先畫在看不見的地方，量到真實高度再擺位。高度會隨內容變，寫死遲早不準
+  const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden', top: 0, left: 0 });
+
+  useLayoutEffect(() => {
+    const read = () => {
+      const a = anchorRef.current;
+      const p = panelRef.current;
+      if (a && p) setStyle(place(a.getBoundingClientRect(), p.getBoundingClientRect(), vertical));
+    };
+    read();
+    window.addEventListener('scroll', read, true);
+    window.addEventListener('resize', read);
+    return () => {
+      window.removeEventListener('scroll', read, true);
+      window.removeEventListener('resize', read);
+    };
+  }, [anchorRef, vertical]);
+
+  return createPortal(
     <Panel
+      ref={panelRef}
       role="dialog"
       aria-label="插入元件"
+      style={style}
       onKeyDown={(e) => e.key === 'Escape' && onClose()}
     >
       <Head>插入</Head>
@@ -67,15 +142,15 @@ export function InsertPanel({ onPick, onClose }: Props) {
           <small>預留位置。接上客戶自己的 API 之後才會啟用。</small>
         </SlotText>
       </Slot>
-    </Panel>
+    </Panel>,
+    document.body
   );
 }
 
 const Panel = styled.div`
-  position: absolute;
-  z-index: 20;
-  inset-inline-start: 50%;
-  transform: translateX(-50%);
+  position: fixed;
+  z-index: 900;
+  inline-size: ${PANEL_INLINE}px;
   background: ${(p) => p.theme.surface.raised};
   border: ${(p) => p.theme.border.widthDefault} solid ${(p) => p.theme.border.subtle};
   border-radius: ${(p) => p.theme.radius.panel};

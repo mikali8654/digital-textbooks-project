@@ -67,6 +67,9 @@ export function RowView({
   const vertical = settings.writingMode === 'vertical';
   const ref = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
+  // 插入面板改用視窗座標定位，這兩個零尺寸的錨點只負責告訴它「插入點在哪」
+  const headAnchor = useRef<HTMLDivElement>(null);
+  const tailAnchor = useRef<HTMLDivElement>(null);
 
   const row = item.row;
   const selected = ed?.selectedBlockId
@@ -107,16 +110,17 @@ export function RowView({
           onOpen={() => ed.openInsert(ed.insertAt === rowIndex ? null : rowIndex)}
         />
       )}
+      <PanelAnchor ref={headAnchor} />
       {ed?.insertAt === rowIndex && isStart && (
-        <PanelAnchor>
-          <InsertPanel
-            onClose={() => ed.openInsert(null)}
-            onPick={(key) => {
-              ed.dispatch({ type: 'insertRow', index: rowIndex, blocks: [blockFor(key)] });
-              ed.openInsert(null);
-            }}
-          />
-        </PanelAnchor>
+        <InsertPanel
+          anchorRef={headAnchor}
+          vertical={vertical}
+          onClose={() => ed.openInsert(null)}
+          onPick={(key) => {
+            ed.dispatch({ type: 'insertRow', index: rowIndex, blocks: [blockFor(key)] });
+            ed.openInsert(null);
+          }}
+        />
       )}
 
       {/*
@@ -259,16 +263,17 @@ export function RowView({
           onOpen={() => ed.openInsert(ed.insertAt === rowCount ? null : rowCount)}
         />
       )}
+      <PanelAnchor ref={tailAnchor} />
       {ed?.insertAt === rowCount && isEnd && rowIndex === rowCount - 1 && (
-        <PanelAnchor>
-          <InsertPanel
-            onClose={() => ed.openInsert(null)}
-            onPick={(key) => {
-              ed.dispatch({ type: 'insertRow', index: rowCount, blocks: [blockFor(key)] });
-              ed.openInsert(null);
-            }}
-          />
-        </PanelAnchor>
+        <InsertPanel
+          anchorRef={tailAnchor}
+          vertical={vertical}
+          onClose={() => ed.openInsert(null)}
+          onPick={(key) => {
+            ed.dispatch({ type: 'insertRow', index: rowCount, blocks: [blockFor(key)] });
+            ed.openInsert(null);
+          }}
+        />
       )}
     </Slot>
   );
@@ -349,8 +354,12 @@ const Slot = styled.div<{ $dragging: boolean }>`
   opacity: ${(p) => (p.$dragging ? 0.4 : 1)};
 `;
 
+/**
+ * 插入面板的錨點：零尺寸，只用來回報「插入點在畫面上的哪個位置」。
+ * 面板本身改用視窗座標畫在頁面之外，才不會被固定畫布的邊緣裁掉。
+ */
 const PanelAnchor = styled.div`
-  position: relative;
+  inline-size: 0;
   block-size: 0;
 `;
 
